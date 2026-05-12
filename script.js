@@ -51,17 +51,17 @@ class Bezier {
             draw.fillRect(this.x0 - 4, this.y0 - 4, 8, 8)
             draw.fillRect(this.x1 - 4, this.y1 - 4, 8, 8)
             draw.fillRect(this.x2 - 4, this.y2 - 4, 8, 8)
-        }
 
-        draw.lineWidth = "1"
-        draw.strokeStyle = "rgba(255,255,255,0.3)"
-        draw.moveTo(this.x0, this.y0)
-        for (let t = 0; t < 1; t += 0.1) {
-            draw.lineTo(this.x(t), this.y(t))
-            draw.fillRect(this.x(t) - 2, this.y(t) - 2, 4, 4)
+            draw.lineWidth = "1"
+            draw.strokeStyle = "rgba(255,255,255,0.3)"
+            draw.moveTo(this.x0, this.y0)
+            for (let t = 0; t < 1; t += 0.1) {
+                draw.lineTo(this.x(t), this.y(t))
+                draw.fillRect(this.x(t) - 2, this.y(t) - 2, 4, 4)
+            }
+            draw.lineTo(this.x(1), this.y(1))
+            draw.stroke()
         }
-        draw.lineTo(this.x(1), this.y(1))
-        draw.stroke()
     }
 }
 
@@ -102,7 +102,6 @@ class Entity {
         }
 
         if (debug) {
-            console.log("debug", this.name)
             this._debugDraw()
         }
 
@@ -313,6 +312,8 @@ function _tick(a) {
         return
     }
 
+    if (clearConsolePerTick) console.clear()
+
     draw.fillStyle = World.color
     draw.fillRect(0,0,width,height)
     World._tick()
@@ -342,7 +343,8 @@ requestAnimationFrame(_tick)
 //#endregion Engine
 
 //#region Engine Config
-const debug = true
+const debug = false
+const clearConsolePerTick = false
 World.color = "rgb(26,4,49)"
 const CollisionLayers = Object.freeze({
     LIGAND: 0,
@@ -358,7 +360,7 @@ testEntity.addCallback(Entity.Callbacks.TICK, (e) => {
     if (e.mouseDown) {
         mdown = false
         console.log('clicked')
-        World.addChild(new Particle("red", 800, 500))
+        World.addChild(new Particle(`hsl(${Math.random() * 360}deg, 90%, 50%)`, Math.random() * width, Math.random() * height, 90))
     }
 })
 World.addChild(testEntity)
