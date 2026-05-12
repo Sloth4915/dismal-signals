@@ -2,8 +2,6 @@
 
 // BASE
 
-const debug = true
-
 //#region Initial Setup
 console.clear()
 
@@ -29,11 +27,6 @@ draw.fillRect(0,0,width,height)
 //#endregion Initial Setup
 
 //#region Engine
-const CollisionLayers = Object.freeze({
-    LIGAND: 0,
-    RECEPTOR: 1,
-})
-
 let dt = 0
 
 class Entity {
@@ -132,15 +125,12 @@ class Sprite extends Entity {
     constructor() {
         super()
         this.r = 0
-        this.vr = 0
+        this.vr = 0.5
         this.scaleX = 1
         this.scaleY = 1
 
         this.drawCanvas = new OffscreenCanvas(this.physicsWidth, this.physicsHeight)
         this.drawCtx = this.drawCanvas.getContext("2d")
-
-        /** rect, ellipse, triangle, custom, img */
-        this.shape = "rect"
     }
     _tick() {
         super._tick()
@@ -160,9 +150,6 @@ class Sprite extends Entity {
         )
         draw.restore()
     }
-    _drawExtra() {
-        return null
-    }
 
     static Shape = {
         RECT: 0,
@@ -172,11 +159,30 @@ class Sprite extends Entity {
     }
 
     setImage(src) {
-        let img = new Image()
-        img.src = src
-        img.addEventListener("load", () => {
-            this.drawCtx.drawImage(img, 0, 0, 100, 100)
+        this.setComplex((ctx, w, h) => {
+            let img = new Image()
+            img.src = src
+            img.addEventListener("load", () => {
+                ctx.drawImage(img, 0, 0, w, h)
+            })
         })
+    }
+    setTriangle(color) {
+        this.setComplex((ctx,w,h) => {
+            ctx.fillStyle = color
+            ctx.beginPath()
+            ctx.moveTo(0,h)
+            ctx.lineTo(w,h)
+            ctx.lineTo(w/2,0)
+            ctx.lineTo(0,h)
+            ctx.fill()
+        })
+    }
+    /** Sets a complex canvas **/
+    setComplex(callback) {
+        this.drawCanvas = new OffscreenCanvas(this.physicsWidth, this.physicsHeight)
+        this.drawCtx = this.drawCanvas.getContext("2d")
+        callback(this.drawCtx, this.physicsWidth, this.physicsHeight)
     }
 }
 
@@ -190,12 +196,10 @@ class UIElement extends Sprite {
 class Particle extends Group {
     constructor() {
         super();
-
     }
 }
 
 const World = new Group()
-World.color = "purple"
 let _time = null
 let timeElapsed = 0
 
@@ -219,7 +223,6 @@ document.addEventListener("mouseleave", (e) => {
     mdown = false
 })
 
-
 function _tick(a) {
     if (_time === null) {
         _time = a
@@ -227,6 +230,12 @@ function _tick(a) {
         return
     }
     dt = (a - _time)/1000
+    if (dt > 1/15) { // If frame takes longer than a 15th of a second, kill it (dt will be too high and may cause issues)
+        _time = a
+        timeElapsed += dt
+        requestAnimationFrame(_tick)
+        return
+    }
 
     draw.fillStyle = World.color
     draw.fillRect(0,0,width,height)
@@ -259,8 +268,17 @@ requestAnimationFrame(_tick)
 
 //#endregion Engine
 
+//#region Engine Config
+const debug = true
+World.color = "purple"
+const CollisionLayers = Object.freeze({
+    LIGAND: 0,
+    RECEPTOR: 1,
+})
+//#endregion
+
 let testEntity = new Sprite()
-testEntity.setImage("ligandtest.png")
+testEntity.setTriangle("red")
 testEntity.collisions = true
 testEntity.hasMouseCollision = true
 console.log(testEntity)
