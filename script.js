@@ -35,8 +35,8 @@ class Entity {
         this.y = 100
 
         this.collisions = false
-        this.physicsWidth = 100
-        this.physicsHeight = 100
+        this.width = 100
+        this.height = 100
         this.personalLayers = []
         this.collisionLayers = []
         this.vx = 0
@@ -73,23 +73,23 @@ class Entity {
             draw.lineWidth = "1"
             draw.strokeStyle = draw.fillStyle = "yellow"
             draw.font = "16px Arial"
-            draw.strokeRect(this.x, this.y, this.physicsWidth, this.physicsHeight)
+            draw.strokeRect(this.x, this.y, this.width, this.height)
             draw.fillText(`Layers${this.personalLayers}, ${this.collisionLayers}`, this.x, this.y)
 
             draw.beginPath();
-            draw.moveTo(this.x + this.physicsWidth / 2, this.y + this.physicsHeight / 2);
-            draw.lineTo(this.x + this.physicsWidth / 2 + this.vx, this.y + this.physicsHeight / 2 + this.vy);
+            draw.moveTo(this.x + this.width / 2, this.y + this.height / 2);
+            draw.lineTo(this.x + this.width / 2 + this.vx, this.y + this.height / 2 + this.vy);
             draw.stroke();
 
             if (this.hasMouseCollision) {
                 if (this.hovered) {
                     draw.lineWidth = "4"
                     draw.strokeStyle = draw.fillStyle = "green"
-                    draw.strokeRect(this.x + 4, this.y + 4, this.physicsWidth - 8, this.physicsHeight - 8)
+                    draw.strokeRect(this.x + 4, this.y + 4, this.width - 8, this.height - 8)
                 }
                 if (this.mouseDown) {
                     draw.strokeStyle = draw.fillStyle = "blue"
-                    draw.strokeRect(this.x + 8, this.y + 8, this.physicsWidth - 16, this.physicsHeight - 16)
+                    draw.strokeRect(this.x + 8, this.y + 8, this.width - 16, this.height - 16)
                 }
             }
         }
@@ -129,7 +129,7 @@ class Sprite extends Entity {
         this.scaleX = 1
         this.scaleY = 1
 
-        this.drawCanvas = new OffscreenCanvas(this.physicsWidth, this.physicsHeight)
+        this.drawCanvas = new OffscreenCanvas(this.width, this.height)
         this.drawCtx = this.drawCanvas.getContext("2d")
     }
     _tick() {
@@ -139,14 +139,14 @@ class Sprite extends Entity {
     _draw() {
         super._draw()
         draw.save()
-        draw.translate(this.x + this.physicsWidth / 2, this.y + this.physicsHeight / 2);
+        draw.translate(this.x + this.width / 2, this.y + this.height / 2);
         draw.rotate(this.r)
         draw.drawImage(
             this.drawCanvas,
-            -this.physicsWidth / 2 * this.scaleX,
-            -this.physicsHeight / 2 * this.scaleY,
-            this.scaleX * this.physicsWidth,
-            this.scaleY * this.physicsHeight
+            -this.width / 2 * this.scaleX,
+            -this.height / 2 * this.scaleY,
+            this.scaleX * this.width,
+            this.scaleY * this.height
         )
         draw.restore()
     }
@@ -180,9 +180,9 @@ class Sprite extends Entity {
     }
     /** Sets a complex canvas **/
     setComplex(callback) {
-        this.drawCanvas = new OffscreenCanvas(this.physicsWidth, this.physicsHeight)
+        this.drawCanvas = new OffscreenCanvas(this.width, this.height)
         this.drawCtx = this.drawCanvas.getContext("2d")
-        callback(this.drawCtx, this.physicsWidth, this.physicsHeight)
+        callback(this.drawCtx, this.width, this.height)
     }
 }
 
