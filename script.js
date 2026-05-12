@@ -43,8 +43,8 @@ class Entity {
         this.vy = 0
 
         this.hasMouseCollision = false
-        this.mouseWidth = 100
-        this.mouseHeight = 100
+        this.width = 100
+        this.height = 100
         this.mousePriority = 0
         this.hovered = false
         this.mouseDown = false
@@ -55,7 +55,7 @@ class Entity {
         this.y += this.vy * dt
 
         if (this.hasMouseCollision) {
-            this.hovered = (this.x < mx && mx < this.x + this.mouseWidth) && (this.y < my && my < this.y + this.mouseHeight)
+            this.hovered = (this.x < mx && mx < this.x + this.width) && (this.y < my && my < this.y + this.height)
             if (this.hovered && !_hoveredEntities.includes(this)) _hoveredEntities.push(this)
             else if (!this.hovered && _hoveredEntities.includes(this)) _hoveredEntities.splice(_hoveredEntities.indexOf(this), 1)
             this.mouseDown = this === downEntity
@@ -85,11 +85,11 @@ class Entity {
                 if (this.hovered) {
                     draw.lineWidth = "4"
                     draw.strokeStyle = draw.fillStyle = "green"
-                    draw.strokeRect(this.x + 4, this.y + 4, this.width - 8, this.height - 8)
+                    draw.strokeRect(this.x, this.y, this.width, this.height)
                 }
                 if (this.mouseDown) {
                     draw.strokeStyle = draw.fillStyle = "blue"
-                    draw.strokeRect(this.x + 8, this.y + 8, this.width - 16, this.height - 16)
+                    draw.strokeRect(this.x + 4, this.y + 4, this.width - 8, this.height - 8)
                 }
             }
         }
