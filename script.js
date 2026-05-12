@@ -29,6 +29,42 @@ draw.fillRect(0,0,width,height)
 //#region Engine
 let dt = 0
 
+class Bezier {
+    /** XY0, XY2, optional XY1 */
+    constructor(x0, y0, x2, y2, x1 = x0 + (x2 - x0) * Math.random(), y1 = y0 + (y2 - y0) * Math.random()) {
+        this.x0 = x0
+        this.y0 = y0
+        this.x2 = x2
+        this.y2 = y2
+        this.x1 = x1
+        this.y1 = y1
+    }
+    x(t) {
+        return (Math.pow(1-t,2) * this.x0) + (2 * (1 - t) * t * this.x1) + (Math.pow(t,2) * this.x2)
+    }
+    y(t) {
+        return (Math.pow(1-t,2) * this.y0) + (2 * (1 - t) * t * this.y1) + (Math.pow(t,2) * this.y2)
+    }
+    draw() {
+        if (debug) {
+            draw.fillStyle = "yellow"
+            draw.fillRect(this.x0 - 4, this.y0 - 4, 8, 8)
+            draw.fillRect(this.x1 - 4, this.y1 - 4, 8, 8)
+            draw.fillRect(this.x2 - 4, this.y2 - 4, 8, 8)
+        }
+
+        draw.lineWidth = "1"
+        draw.strokeStyle = "rgba(255,255,255,0.3)"
+        draw.moveTo(this.x0, this.y0)
+        for (let t = 0; t < 1; t += 0.1) {
+            draw.lineTo(this.x(t), this.y(t))
+            draw.fillRect(this.x(t) - 2, this.y(t) - 2, 4, 4)
+        }
+        draw.lineTo(this.x(1), this.y(1))
+        draw.stroke()
+    }
+}
+
 class Entity {
     constructor() {
         this.x = 100
@@ -50,6 +86,8 @@ class Entity {
         this.mouseDown = false
 
         this.callbacks = []
+
+        this.name = "entity"
     }
     _tick() {
         this._draw()
@@ -64,6 +102,7 @@ class Entity {
         }
 
         if (debug) {
+            console.log("debug", this.name)
             this._debugDraw()
         }
 
@@ -114,7 +153,6 @@ class Group extends Entity {
     constructor() {
         super()
         this.entities = []
-        this.mode = Group.MovementMode.CARTESIAN
     }
     _tick() {
         super._tick()
@@ -135,11 +173,6 @@ class Group extends Entity {
     removeChild(e) {
         this.entities.splice(this.entities.indexOf(e), 1)
         e.parent = null
-    }
-
-    static MovementMode = {
-        CARTESIAN: 0,
-        POLAR: 1,
     }
 }
 
@@ -173,13 +206,6 @@ class Sprite extends Entity {
             this.scaleY * this.height
         )
         draw.restore()
-    }
-
-    static Shape = {
-        RECT: 0,
-        ELLIPSE: 1,
-        CUSTOM: 2,
-        IMAGE: 3,
     }
 
     setImage(src) {
@@ -332,7 +358,18 @@ testEntity.addCallback(Entity.Callbacks.TICK, (e) => {
     if (e.mouseDown) {
         mdown = false
         console.log('clicked')
-        World.addChild(new Particle("yellow", 500, 500))
+        World.addChild(new Particle("red", 800, 500))
     }
 })
 World.addChild(testEntity)
+
+let curveFollower = new Sprite()
+curveFollower.setTriangle("blue")
+curveFollower.name = "triangle"
+let curve = new Bezier(50, 700, 700, 200, 400, 10)
+curveFollower.addCallback(Entity.Callbacks.TICK, (e) => {
+    e.x = curve.x((timeElapsed/5) % 1) - e.width / 2
+    e.y = curve.y((timeElapsed/5) % 1) - e.height / 2
+    curve.draw()
+})
+World.addChild(curveFollower)
