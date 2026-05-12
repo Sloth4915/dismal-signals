@@ -48,6 +48,8 @@ class Entity {
         this.mousePriority = 0
         this.hovered = false
         this.mouseDown = false
+
+        this.callbacks = []
     }
     _tick() {
         this._draw()
@@ -63,6 +65,10 @@ class Entity {
 
         if (debug) {
             this._debugDraw()
+        }
+
+        for (let callback of this.callbacks) {
+            if (callback.type === Entity.Callbacks.TICK) callback.fn(this)
         }
     }
     _draw() {
@@ -94,6 +100,13 @@ class Entity {
             }
         }
     }
+    addCallback(type, fn) {
+        this.callbacks.push({type, fn})
+    }
+
+    static Callbacks = Object.freeze({
+        TICK: 0,
+    })
 }
 
 /* Holds multiple entities together as one */
@@ -111,8 +124,17 @@ class Group extends Entity {
             e._tick()
         }
     }
-    addChild(e) {
+    addChild(e, changePosition = false) {
         this.entities.push(e)
+        e.parent = this
+        if (changePosition) {
+            e.x = this.x
+            e.y = this.y
+        }
+    }
+    removeChild(e) {
+        this.entities.splice(this.entities.indexOf(e), 1)
+        e.parent = null
     }
 
     static MovementMode = {
@@ -125,9 +147,10 @@ class Sprite extends Entity {
     constructor() {
         super()
         this.r = 0
-        this.vr = 0.5
+        this.vr = 0
         this.scaleX = 1
         this.scaleY = 1
+        this.opacity = 1
 
         this.drawCanvas = new OffscreenCanvas(this.width, this.height)
         this.drawCtx = this.drawCanvas.getContext("2d")
@@ -141,6 +164,7 @@ class Sprite extends Entity {
         draw.save()
         draw.translate(this.x + this.width / 2, this.y + this.height / 2);
         draw.rotate(this.r)
+        draw.globalAlpha = this.opacity
         draw.drawImage(
             this.drawCanvas,
             -this.width / 2 * this.scaleX,
@@ -194,8 +218,34 @@ class UIElement extends Sprite {
 }
 
 class Particle extends Group {
-    constructor() {
+    constructor(color, x, y, quantity = 25, lifespan = 0.4, speed = 250) {
         super();
+
+        this.x = x
+        this.y = y
+
+        let timeRemaining = lifespan
+
+        for (let i = 0; i < quantity; i++) {
+            let sprite = new Sprite()
+            sprite.setTriangle(color)
+            sprite.width = 12
+            sprite.height = 12
+            sprite.vx = Math.cos(Math.PI * 2 * i / quantity) * speed * Math.random()
+            sprite.vy = Math.sin(Math.PI * 2 * i / quantity) * speed * Math.random()
+            sprite.vr = Math.cos(Math.PI * 2 * i / quantity) * speed * Math.random() * 0.2
+            sprite.opacity = 0.4
+            this.addChild(sprite, true)
+        }
+        this.addCallback(Entity.Callbacks.TICK, () => {
+            timeRemaining -= dt
+            for (let child of this.entities) {
+                child.scaleX = child.scaleY = Math.max(timeRemaining / lifespan, 0)
+                child.vx *= (1-dt)
+                child.vy *= (1-dt)
+            }
+            if (timeRemaining < -0.1) this.parent.removeChild(this)
+        })
     }
 }
 
@@ -241,9 +291,6 @@ function _tick(a) {
     draw.fillRect(0,0,width,height)
     World._tick()
 
-    testEntity.vx = 80 * Math.sin(timeElapsed * 0.5)
-    testEntity.vy = 80 * Math.cos(timeElapsed * 0.5)
-
     if (debug) {
         draw.font = "16px Arial"
         draw.fillStyle = "yellow"
@@ -270,7 +317,7 @@ requestAnimationFrame(_tick)
 
 //#region Engine Config
 const debug = true
-World.color = "purple"
+World.color = "rgb(26,4,49)"
 const CollisionLayers = Object.freeze({
     LIGAND: 0,
     RECEPTOR: 1,
@@ -278,8 +325,14 @@ const CollisionLayers = Object.freeze({
 //#endregion
 
 let testEntity = new Sprite()
-testEntity.setTriangle("red")
+testEntity.setImage("ligandtest.png")
 testEntity.collisions = true
 testEntity.hasMouseCollision = true
-console.log(testEntity)
+testEntity.addCallback(Entity.Callbacks.TICK, (e) => {
+    if (e.mouseDown) {
+        mdown = false
+        console.log('clicked')
+        World.addChild(new Particle("yellow", 500, 500))
+    }
+})
 World.addChild(testEntity)
