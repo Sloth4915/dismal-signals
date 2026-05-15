@@ -1,10 +1,13 @@
 "use strict";
 
-// BASE
+//#region Engine Config Part 1
+let fonts = ["Metamorphous"]
+const smallFont = "16px Metamorphous, Arial"
+const mediumFont = "24px Metamorphous, Arial"
+const largeFont = "32px Metamorphous, Arial"
+//#endregion
 
 //#region Initial Setup
-console.clear()
-
 document.body.style["margin"] = "0"
 document.body.style["display"] = "flex"
 document.body.style["justify-content"] = "center"
@@ -22,8 +25,22 @@ canvas.height = height
 canvas.style.maxWidth = "100vw"
 canvas.style.maxHeight = "100vh"
 let draw = canvas.getContext("2d")
-draw.fillStyle = "purple"
-draw.fillRect(0,0,width,height)
+draw.font = smallFont
+
+let _fontsLoading = fonts.length
+for (let font of fonts) {
+    new FontFace(font, `url(assets/fonts/${font}.ttf)`).load().then((loaded) => {
+        document.fonts.add(loaded)
+        _fontsLoading--
+        if (_fontsLoading === 0) {
+            requestAnimationFrame(_tick)
+            let gameplayScript = document.createElement("script")
+            gameplayScript.src = "game.js"
+            document.body.appendChild(gameplayScript)
+        }
+    })
+}
+
 //#endregion Initial Setup
 
 //#region Engine
@@ -85,12 +102,17 @@ class Entity {
 
         this.callbacks = []
 
+        this.hidden = false
+
         this.name = "entity"
     }
-    _tick() {
-        this._draw()
-        this.x += this.vx * dt
-        this.y += this.vy * dt
+    tick() {
+        if (!this.hidden) this.draw()
+
+        if (Math.abs(this.vx) < 0.1) this.vx = 0
+        else this.x += this.vx * dt
+        if (Math.abs(this.vy) < 0.1) this.vy = 0
+        else this.y += this.vy * dt
 
         if (this.hasMouseCollision) {
             this.hovered = (this.x < mx && mx < this.x + this.width) && (this.y < my && my < this.y + this.height)
@@ -107,14 +129,14 @@ class Entity {
             if (callback.type === Entity.Callbacks.TICK) callback.fn(this)
         }
     }
-    _draw() {
+    draw() {
 
     }
     _debugDraw() {
         if (this.collisions) {
             draw.lineWidth = "1"
             draw.strokeStyle = draw.fillStyle = "yellow"
-            draw.font = "16px Arial"
+            draw.font = smallFont
             draw.strokeRect(this.x, this.y, this.width, this.height)
             draw.fillText(`Layers${this.personalLayers}, ${this.collisionLayers}`, this.x, this.y)
 
@@ -198,14 +220,14 @@ class Group extends Entity {
         super()
         this.entities = []
     }
-    _tick() {
-        super._tick()
+    tick() {
+        super.tick()
         for (let e of this.entities) {
             if (this.vx < 0.5) this.vx = 0
             else e.x += this.vx * dt
             if (this.vy < 0.5) this.vy = 0
             else e.y += this.vy * dt
-            e._tick()
+            e.tick()
         }
     }
     addChild(e, changePosition = false) {
@@ -224,7 +246,7 @@ class Group extends Entity {
 }
 
 class Sprite extends Entity {
-    constructor(type = null, options = null) {
+    constructor(type = null, option0, option1) {
         super()
         this.r = 0
         this.vr = 0
@@ -233,17 +255,20 @@ class Sprite extends Entity {
         this.opacity = 1
 
         if (type !== null) {
-            if (type === Sprite.DrawType.IMAGE) this.setImage(options)
-            if (type === Sprite.DrawType.TRIANGLE) this.setTriangle(options)
-            if (type === Sprite.DrawType.COMPLEX) this.setComplex(options)
+                 if (type === Sprite.DrawType.IMAGE) this.setImage(option0)
+            else if (type === Sprite.DrawType.TRIANGLE) this.setTriangle(option0)
+            else if (type === Sprite.DrawType.COMPLEX) this.setComplex(option0)
+            else if (type === Sprite.DrawType.TEXT_SMALL) this.setTextSmall(option0, option1)
+            else if (type === Sprite.DrawType.TEXT_MEDIUM) this.setTextMedium(option0, option1)
+            else if (type === Sprite.DrawType.TEXT_LARGE) this.setTextLarge(option0, option1)
         } else this.setComplex(() => {})
     }
-    _tick() {
-        super._tick()
+    tick() {
+        super.tick()
         this.r += this.vr * dt
     }
-    _draw() {
-        super._draw()
+    draw() {
+        super.draw()
         draw.save()
         draw.translate(this.x + this.width / 2, this.y + this.height / 2);
         draw.rotate(this.r)
@@ -278,22 +303,54 @@ class Sprite extends Entity {
             ctx.fill()
         })
     }
+    setTextSmall(text = "Missing Text", color="white") {
+        this.setComplex((ctx,w,h) => {
+            ctx.fillStyle = color
+            ctx.font = smallFont
+            ctx.fillText(text, w/2, h/2)
+        })
+    }
+    setTextMedium(text = "Missing Text", color="white") {
+        this.setComplex((ctx,w,h) => {
+            ctx.fillStyle = color
+            ctx.font = mediumFont
+            ctx.fillText(text, w/2, h/2)
+        })
+    }
+    setTextLarge(text = "Missing Text", color="white") {
+        this.setComplex((ctx,w,h) => {
+            ctx.fillStyle = color
+            ctx.font = largeFont
+            ctx.fillText(text, w/2, h/2)
+        })
+    }
     /** Sets a complex canvas **/
     setComplex(callback) {
         this.drawCanvas = new OffscreenCanvas(this.width, this.height)
         this.drawCtx = this.drawCanvas.getContext("2d")
+        this.drawCtx.textBaseline = 'middle';
+        this.drawCtx.textAlign = 'center';
+
         callback(this.drawCtx, this.width, this.height)
     }
 
     static DrawType = Object.freeze({
         IMAGE: "img",
         TRIANGLE: "tri",
-        COMPLEX: "complex"
+        COMPLEX: "complex",
+        TEXT_SMALL: "small_text",
+        TEXT_MEDIUM: "medium_text",
+        TEXT_LARGE: "large_text",
+        // TODO: implement the following
+        RECT: "rect",
+        RECTANGLE: "rect",
+        CIRCLE: "circle",
+        ELLIPSE: "circle"
     })
 }
 
 class NineSlice extends Group {
-    constructor() {
+    constructor(name = "standard") {
         super();
 
         this.width = 300
@@ -302,15 +359,15 @@ class NineSlice extends Group {
         /** Border Radius */
         this.border = 32
 
-        this.tl = this.addChild(new Sprite(Sprite.DrawType.IMAGE, "9slice/tl.png"))
-        this.t = this.addChild(new Sprite(Sprite.DrawType.IMAGE, "9slice/t.png"))
-        this.tr = this.addChild(new Sprite(Sprite.DrawType.IMAGE, "9slice/tr.png"))
-        this.l = this.addChild(new Sprite(Sprite.DrawType.IMAGE, "9slice/l.png"))
-        this.m = this.addChild(new Sprite(Sprite.DrawType.IMAGE, "9slice/m.png"))
-        this.r = this.addChild(new Sprite(Sprite.DrawType.IMAGE, "9slice/r.png"))
-        this.bl = this.addChild(new Sprite(Sprite.DrawType.IMAGE, "9slice/bl.png"))
-        this.b = this.addChild(new Sprite(Sprite.DrawType.IMAGE, "9slice/b.png"))
-        this.br = this.addChild(new Sprite(Sprite.DrawType.IMAGE, "9slice/br.png"))
+        this.tl = this.addChild(new Sprite(Sprite.DrawType.IMAGE, `assets/9slice/${name}/tl.png`))
+        this.t = this.addChild(new Sprite(Sprite.DrawType.IMAGE, `assets/9slice/${name}/t.png`))
+        this.tr = this.addChild(new Sprite(Sprite.DrawType.IMAGE, `assets/9slice/${name}/tr.png`))
+        this.l = this.addChild(new Sprite(Sprite.DrawType.IMAGE, `assets/9slice/${name}/l.png`))
+        this.m = this.addChild(new Sprite(Sprite.DrawType.IMAGE, `assets/9slice/${name}/m.png`))
+        this.r = this.addChild(new Sprite(Sprite.DrawType.IMAGE, `assets/9slice/${name}/r.png`))
+        this.bl = this.addChild(new Sprite(Sprite.DrawType.IMAGE, `assets/9slice/${name}/bl.png`))
+        this.b = this.addChild(new Sprite(Sprite.DrawType.IMAGE, `assets/9slice/${name}/b.png`))
+        this.br = this.addChild(new Sprite(Sprite.DrawType.IMAGE, `assets/9slice/${name}/br.png`))
 
         this.finishedInit = true
         this.resetChildren()
@@ -334,13 +391,13 @@ class NineSlice extends Group {
         this.br.setPosAndSize(this.x + partialWidth + this.border, this.y + partialHeight + this.border, this.border, this.border)
     }
 
-    _tick() {
+    tick() {
         for (let e of this.entities) {
             if (this.vx < 0.5) this.vx = 0
             else e.x += this.vx * dt
             if (this.vy < 0.5) this.vy = 0
             else e.y += this.vy * dt
-            e._tick()
+            e.tick()
         }
     }
 
@@ -370,10 +427,90 @@ class NineSlice extends Group {
     //#endregion
 }
 
-class UIElement extends NineSlice {
-    constructor() {
+class UIElement extends Entity {
+    constructor(type, text, width, height, action = (e) => {}) {
         super();
         this.hasMouseCollision = true
+
+        this.disabled = false
+
+        this.standardSlice = new NineSlice()
+        this.hoveredSlice = new NineSlice("selected")
+        this.disabledSlice = new NineSlice("disabled")
+        this.textContents = text
+        this.text = new Sprite()
+        this.setText(text)
+
+        this.width = width
+        this.height = height
+
+        this.action = action
+
+        this.collisions = true
+        this.hasMouseCollision = true
+
+        this.type = type
+    }
+
+    setText(text = this.textContents) {
+        this.textContents = text
+        this.text.setTextMedium(text, "white")
+    }
+
+    tick() {
+        super.tick()
+        if (this.disabled) this.disabledSlice.tick()
+        else if (this.hovered) this.hoveredSlice.tick()
+        else this.standardSlice.tick()
+        this.text.tick()
+
+        if (this.type === UIElement.Type.PRESS_BUTTON && this.mouseDown) {
+            mdown = false
+            this.action.call(this)
+            console.log("push")
+        } else if (this.type === UIElement.Type.HOLD_BUTTON && this.mouseDown) {
+            this.action.call(this)
+            console.log("push")
+        }
+    }
+
+    static Type = Object.freeze({
+        LABEL: "label",
+        PRESS_BUTTON: "press",
+        HOLD_BUTTON: "hold",
+    })
+
+    get x() {
+        return super.x
+    }
+    set x(a) {
+        super.x = a
+        this.standardSlice.x = this.hoveredSlice.x = this.disabledSlice.x = this.text.x = a
+        this.setText()
+    }
+    get y() {
+        return super.y
+    }
+    set y(a) {
+        super.y = a
+        this.standardSlice.y = this.hoveredSlice.y = this.disabledSlice.y = this.text.y = a
+        this.setText()
+    }
+    get width() {
+        return super.width
+    }
+    set width(a) {
+        super.width = a
+        this.standardSlice.width = this.hoveredSlice.width = this.disabledSlice.width = this.text.width = a
+        this.setText()
+    }
+    get height() {
+        return super.height
+    }
+    set height(a) {
+        super.height = a
+        this.standardSlice.height = this.hoveredSlice.height = this.disabledSlice.height = this.text.height = a
+        this.setText()
     }
 }
 
@@ -451,10 +588,10 @@ function _tick(a) {
 
     draw.fillStyle = World.color
     draw.fillRect(0,0,width,height)
-    World._tick()
+    World.tick()
 
     if (debug) {
-        draw.font = "16px Arial"
+        draw.font = smallFont
         draw.fillStyle = "yellow"
         draw.fillText(`${Math.round(1/dt)}fps`,0,16)
         draw.fillText(`(${Math.round(mx)}, ${Math.round(my)})`,0,40)
@@ -474,7 +611,6 @@ function _tick(a) {
     timeElapsed += dt
     requestAnimationFrame(_tick)
 }
-requestAnimationFrame(_tick)
 
 //#endregion Engine
 
@@ -487,36 +623,3 @@ const CollisionLayers = Object.freeze({
     RECEPTOR: 1,
 })
 //#endregion
-
-/*
-let testEntity = new Sprite()
-testEntity.setImage("ligandtest.png")
-testEntity.collisions = true
-testEntity.hasMouseCollision = true
-testEntity.addCallback(Entity.Callbacks.TICK, (e) => {
-    if (e.mouseDown) {
-        mdown = false
-        console.log('clicked')
-        World.addChild(new Particle(`hsl(${Math.random() * 360}deg, 90%, 50%)`, Math.random() * width, Math.random() * height, 90))
-    }
-})
-World.addChild(testEntity)
- */
-
-/*
-let curveFollower = new Sprite()
-curveFollower.setTriangle("blue")
-curveFollower.name = "triangle"
-let curve = new Bezier(50, 700, 700, 200, 400, 10)
-curveFollower.addCallback(Entity.Callbacks.TICK, (e) => {
-    e.x = curve.x((timeElapsed/5) % 1) - e.width / 2
-    e.y = curve.y((timeElapsed/5) % 1) - e.height / 2
-    curve.draw()
-})
-World.addChild(curveFollower)
-*/
-
-let slice = World.addChild(new NineSlice())
-slice.x = 500
-slice.y = 500
-
