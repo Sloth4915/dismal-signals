@@ -35,7 +35,7 @@ for (let font of fonts) {
         if (_fontsLoading === 0) {
             requestAnimationFrame(_tick)
             let gameplayScript = document.createElement("script")
-            gameplayScript.src = "game.js"
+            gameplayScript.src = "gameplay/main.js"
             document.body.appendChild(gameplayScript)
         }
     })
@@ -44,6 +44,43 @@ for (let font of fonts) {
 //#endregion Initial Setup
 
 //#region Engine
+
+/* Removed because the children remain in world, invalidating this. Good idea and might have potential later.
+class Scene {
+    constructor(name) {
+        this.name = name
+        this.script = document.createElement("script")
+        this.script.src = `gameplay/${name}.js`
+    }
+}
+
+const SceneHandler = Object.freeze({
+    scenes: [],
+    addScene(scene) {
+        if (typeof scene === "string") scene = new Scene(scene)
+        this.scenes.push(scene)
+        document.body.appendChild(scene.script)
+    },
+    removeScene(scene) {
+        scene = this.scenes.splice(this.indexOf(scene),1)[0]
+        console.log(scene)
+        scene.script.remove()
+    },
+    includes(scene) {
+        for (let currentScene of this.scenes) {
+            if (currentScene.name === scene.name) return true
+        }
+        return false
+    },
+    indexOf(scene) {
+        console.log(this.scenes, scene)
+        for (let i in this.scenes) {
+            if (this.scenes[i].name === scene.name ?? scene) return i
+        }
+        return -1
+    }
+})*/
+
 let dt = 0
 
 class Bezier {
@@ -260,7 +297,8 @@ class Sprite extends Entity {
             else if (type === Sprite.DrawType.COMPLEX) this.setComplex(option0)
             else if (type === Sprite.DrawType.TEXT_SMALL) this.setTextSmall(option0, option1)
             else if (type === Sprite.DrawType.TEXT_MEDIUM) this.setTextMedium(option0, option1)
-            else if (type === Sprite.DrawType.TEXT_LARGE) this.setTextLarge(option0, option1)
+            else if (type === Sprite.DrawType.RECT) this.setRect(option0, option1)
+            else if (type === Sprite.DrawType.CIRCLE) this.setCircle(option0)
         } else this.setComplex(() => {})
     }
     tick() {
@@ -323,6 +361,17 @@ class Sprite extends Entity {
             ctx.font = largeFont
             ctx.fillText(text, w/2, h/2)
         })
+    }
+    setRect(color, radius = 0) {
+        this.setComplex((ctx,w,h) => {
+            ctx.fillStyle = color
+            ctx.beginPath()
+            ctx.roundRect(0,0,w,h,radius)
+            ctx.fill()
+        })
+    }
+    setCircle(color) {
+        this.setRect(color, 10000)
     }
     /** Sets a complex canvas **/
     setComplex(callback) {

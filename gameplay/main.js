@@ -34,12 +34,12 @@ curveFollower2.addCallback(Entity.Callbacks.TICK, (e) => {
 })
 World.addChild(curveFollower2)
 
-let el = World.addChild(new UIElement(UIElement.Type.LABEL, "test text", 200, 50))
+let el = World.addChild(new UIElement(UIElement.Type.PRESS_BUTTON, "test text", 200, 50))
 el.x = 500
 el.y = 500
 
-let text = World.addChild(new Sprite(Sprite.DrawType.TEXT_LARGE, "Text for testing"))
+let text = World.addChild(new Sprite(Sprite.DrawType.ELLIPSE, "blue"))
 text.collisions = true
 text.width = 400
-text.setTextLarge("text for testing", "red")
+text.height = 400
 text.x = 600
