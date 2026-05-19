@@ -129,6 +129,7 @@ class Entity {
         this._height = 100
         this.personalLayers = []
         this.collisionLayers = []
+        this.activeCollisions = []
         this.vx = 0
         this.vy = 0
 
@@ -144,6 +145,7 @@ class Entity {
         this.name = "entity"
     }
     tick() {
+        _entities.push(this)
         if (!this.hidden) this.draw()
 
         if (Math.abs(this.vx) < 0.1) this.vx = 0
@@ -172,26 +174,28 @@ class Entity {
     _debugDraw() {
         if (this.collisions) {
             draw.lineWidth = "1"
-            draw.strokeStyle = draw.fillStyle = "yellow"
+            draw.fillStyle = "yellow"
             draw.font = smallFont
-            draw.strokeRect(this.x, this.y, this.width, this.height)
-            draw.fillText(`Layers${this.personalLayers}, ${this.collisionLayers}`, this.x, this.y)
+            draw.fillText(`Personal${this.personalLayers}`, this.x, this.y + 12)
+            draw.fillText(`Collides${this.collisionLayers}`,this.x,this.y + 24)
+            draw.fillText(`Current${this.activeCollisions}`,this.x,this.y + 36)
 
+            draw.strokeStyle = "yellow"
+            draw.strokeRect(this.x, this.y, this.width, this.height)
             draw.beginPath();
             draw.moveTo(this.x + this.width / 2, this.y + this.height / 2);
             draw.lineTo(this.x + this.width / 2 + this.vx, this.y + this.height / 2 + this.vy);
             draw.stroke();
-
-            if (this.hasMouseCollision) {
-                if (this.hovered) {
-                    draw.lineWidth = "4"
-                    draw.strokeStyle = draw.fillStyle = "green"
-                    draw.strokeRect(this.x, this.y, this.width, this.height)
-                }
-                if (this.mouseDown) {
-                    draw.strokeStyle = draw.fillStyle = "blue"
-                    draw.strokeRect(this.x + 4, this.y + 4, this.width - 8, this.height - 8)
-                }
+        }
+        if (this.hasMouseCollision) {
+            if (this.hovered) {
+                draw.lineWidth = "4"
+                draw.strokeStyle = draw.fillStyle = "green"
+                draw.strokeRect(this.x, this.y, this.width, this.height)
+            }
+            if (this.mouseDown) {
+                draw.strokeStyle = draw.fillStyle = "blue"
+                draw.strokeRect(this.x + 4, this.y + 4, this.width - 8, this.height - 8)
             }
         }
     }
@@ -218,6 +222,21 @@ class Entity {
         this.setPosition(x,y)
         this.setSize(w,h)
     }
+
+    //#region Getters for bounds
+    get left() {
+        return this.x
+    }
+    get right() {
+        return this.x + this.width
+    }
+    get top() {
+        return this.y
+    }
+    get bottom() {
+        return this.y + this.height
+    }
+    //#endregion
 
     static Callbacks = Object.freeze({
         TICK: 0,
@@ -267,10 +286,15 @@ class Group extends Entity {
             e.tick()
         }
     }
-    addChild(e, changePosition = false) {
+    addChild(e, xOrChangePosition = false, y=0) {
         this.entities.push(e)
         e.parent = this
-        if (changePosition) {
+
+        if (typeof xOrChangePosition === "number") {
+            e.x = xOrChangePosition
+            e.y = y
+        }
+        else if (xOrChangePosition) {
             e.x = this.x
             e.y = this.y
         }
@@ -597,6 +621,7 @@ class Particle extends Group {
 
 const World = new Group()
 let _time = null
+let _entities = []
 let timeElapsed = 0
 
 let mx = 0
@@ -649,6 +674,28 @@ function _tick(a) {
     draw.fillStyle = "yellow"
     draw.fillRect(mx,my,4,4)
 
+    for (let entity of _entities) {
+        if (!entity.collisions) continue
+        let layers = []
+        for (let check of _entities) {
+            if (check === entity || !check.collisions) continue
+            for (let layer of entity.collisionLayers) {
+                if (check.personalLayers.includes(layer) && !layers.includes(layer)) {
+                    let points = [
+                        {x: check.left, y: check.top},
+                        {x: check.right, y: check.top},
+                        {x: check.left, y: check.bottom},
+                        {x: check.right, y: check.bottom}
+                    ]
+                    for (let p of points) {
+                        if (entity.left < p.x && p.x < entity.right && entity.top < p.y && p.y < entity.bottom) layers.push(layer)
+                    }
+                }
+            }
+            entity.activeCollisions = layers
+        }
+    }
+
     downEntity = {mousePriority: Infinity}
     if (mdown) {
         for (let entity of _hoveredEntities) {
@@ -658,6 +705,7 @@ function _tick(a) {
 
     _time = a
     timeElapsed += dt
+    _entities = []
     requestAnimationFrame(_tick)
 }
 
@@ -668,7 +716,9 @@ const debug = true
 const clearConsolePerTick = false
 World.color = "rgb(26,4,49)"
 const CollisionLayers = Object.freeze({
-    LIGAND: 0,
-    RECEPTOR: 1,
+    LIGAND_A: 0,
+    RECEPTOR_A: 1,
+    LIGAND_B: 2,
+    RECEPTOR_B: 2,
 })
 //#endregion

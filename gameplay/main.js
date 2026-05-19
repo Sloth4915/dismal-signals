@@ -1,3 +1,4 @@
+/*
 let testEntity = new Sprite()
 testEntity.setImage("ligandtest.png")
 testEntity.collisions = true
@@ -43,3 +44,20 @@ text.collisions = true
 text.width = 400
 text.height = 400
 text.x = 600
+*/
+
+let x = World.addChild(new Sprite(Sprite.DrawType.RECT, "red"), 100, height/2 - 50)
+x.collisions = true
+x.collisionLayers = [0, 1]
+x.addCallback(Entity.Callbacks.TICK, () => {
+    x.x = mx
+    x.y = my
+})
+
+let receptor = World.addChild(new Sprite(Sprite.DrawType.RECT, "white"), width / 2 - 100, height/2 - 50)
+receptor.collisions = true
+receptor.personalLayers = [0]
+
+let receptor2 = World.addChild(new Sprite(Sprite.DrawType.RECT, "white"), width / 2 + 60, height/2 - 80)
+receptor2.collisions = true
+receptor2.personalLayers = [1]
