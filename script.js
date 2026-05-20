@@ -82,6 +82,7 @@ const SceneHandler = Object.freeze({
 })*/
 
 let dt = 0
+let totalEntities = 0
 
 class Bezier {
     /** XY0, XY2, optional XY1 */
@@ -121,6 +122,9 @@ class Bezier {
 
 class Entity {
     constructor() {
+        this.entityType = "entity"
+        this.id = Date.now() + "e" + (totalEntities++) + "r" + Math.floor(Math.random()*100000)
+
         this._x = 100
         this._y = 100
 
@@ -140,6 +144,7 @@ class Entity {
 
         this.callbacks = []
 
+        this.disabled = false
         this.hidden = false
 
         this.name = "entity"
@@ -157,7 +162,9 @@ class Entity {
             this.hovered = (this.x < mx && mx < this.x + this.width) && (this.y < my && my < this.y + this.height)
             if (this.hovered && !_hoveredEntities.includes(this)) _hoveredEntities.push(this)
             else if (!this.hovered && _hoveredEntities.includes(this)) _hoveredEntities.splice(_hoveredEntities.indexOf(this), 1)
-            this.mouseDown = this === downEntity
+
+            // TODO: make sure multiple entities cant be down at once via mousePriority
+            this.mouseDown = this.hovered && mdown
         }
 
         if (debug) {
@@ -205,22 +212,27 @@ class Entity {
 
     setPos(x,y) {
         this.setPosition(x,y)
+        return this
     }
     setPosition(x,y) {
         this.x = x
         this.y = y
+        return this
     }
     setSize(width,height) {
         this.width = width
         this.height = height
+        return this
     }
     setBounds(x0,y0,x1,y1) {
         this.setPosition(x0,y0)
         this.setSize(x1-x0,y1-y0)
+        return this
     }
     setPosAndSize(x,y,w,h) {
         this.setPosition(x,y)
         this.setSize(w,h)
+        return this
     }
 
     //#region Getters for bounds
@@ -268,12 +280,17 @@ class Entity {
         this._height = a
     }
     //#endregion
+
+    toString() {
+        return this.entityType
+    }
 }
 
 /* Holds multiple entities together as one */
 class Group extends Entity {
     constructor() {
         super()
+        this.entityType = "group"
         this.entities = []
     }
     tick() {
@@ -283,7 +300,7 @@ class Group extends Entity {
             else e.x += this.vx * dt
             if (this.vy < 0.5) this.vy = 0
             else e.y += this.vy * dt
-            e.tick()
+            if (!e.disabled) e.tick()
         }
     }
     addChild(e, xOrChangePosition = false, y=0) {
@@ -307,13 +324,18 @@ class Group extends Entity {
 }
 
 class Sprite extends Entity {
-    constructor(type = null, option0, option1) {
+    constructor(type = null, option0, option1, width = 200, height = 200) {
         super()
+        this.entityType = "sprite"
+
         this.r = 0
         this.vr = 0
         this.scaleX = 1
         this.scaleY = 1
         this.opacity = 1
+
+        this.width = width
+        this.height = height
 
         if (type !== null) {
                  if (type === Sprite.DrawType.IMAGE) this.setImage(option0)
@@ -321,6 +343,7 @@ class Sprite extends Entity {
             else if (type === Sprite.DrawType.COMPLEX) this.setComplex(option0)
             else if (type === Sprite.DrawType.TEXT_SMALL) this.setTextSmall(option0, option1)
             else if (type === Sprite.DrawType.TEXT_MEDIUM) this.setTextMedium(option0, option1)
+            else if (type === Sprite.DrawType.TEXT_LARGE) this.setTextLarge(option0, option1)
             else if (type === Sprite.DrawType.RECT) this.setRect(option0, option1)
             else if (type === Sprite.DrawType.CIRCLE) this.setCircle(option0)
         } else this.setComplex(() => {})
@@ -425,6 +448,7 @@ class Sprite extends Entity {
 class NineSlice extends Group {
     constructor(name = "standard") {
         super();
+        this.entityType = "9slice"
 
         this.width = 300
         this.height = 200
@@ -503,9 +527,11 @@ class NineSlice extends Group {
 class UIElement extends Entity {
     constructor(type, text, width, height, action = (e) => {}) {
         super();
+        this.entityType = "ui"
+
         this.hasMouseCollision = true
 
-        this.disabled = false
+        this.disableAction = false
 
         this.standardSlice = new NineSlice()
         this.hoveredSlice = new NineSlice("selected")
@@ -521,6 +547,7 @@ class UIElement extends Entity {
 
         this.collisions = true
         this.hasMouseCollision = true
+        this.mousePriority = 0
 
         this.type = type
     }
@@ -532,18 +559,17 @@ class UIElement extends Entity {
 
     tick() {
         super.tick()
-        if (this.disabled) this.disabledSlice.tick()
+        if (this.disableAction) this.disabledSlice.tick()
         else if (this.hovered) this.hoveredSlice.tick()
         else this.standardSlice.tick()
         this.text.tick()
 
-        if (this.type === UIElement.Type.PRESS_BUTTON && this.mouseDown) {
+        if (this.disableAction) return
+        if (this.type === UIElement.Type.PRESS_BUTTON && this.mouseDown && this.hovered) {
             mdown = false
-            this.action.call(this)
-            console.log("push")
-        } else if (this.type === UIElement.Type.HOLD_BUTTON && this.mouseDown) {
-            this.action.call(this)
-            console.log("push")
+            this.action(this)
+        } else if (this.type === UIElement.Type.HOLD_BUTTON && this.mouseDown && this.hovered) {
+            this.action(this)
         }
     }
 
@@ -590,6 +616,7 @@ class UIElement extends Entity {
 class Particle extends Group {
     constructor(color, x, y, quantity = 25, lifespan = 0.4, speed = 250) {
         super();
+        this.entityType = "particle"
 
         this.x = x
         this.y = y
@@ -628,7 +655,6 @@ let mx = 0
 let my = 0
 let mdown = false
 let _hoveredEntities = []
-let downEntity = null
 
 canvas.addEventListener("mousemove", (e) => {
     mx = ((e.clientX - canvas.offsetLeft) / canvas.offsetWidth) * canvas.width
@@ -664,11 +690,15 @@ function _tick(a) {
     draw.fillRect(0,0,width,height)
     World.tick()
 
+    // TODO fix hovered to not include elements once they are disabled
     if (debug) {
         draw.font = smallFont
         draw.fillStyle = "yellow"
         draw.fillText(`${Math.round(1/dt)}fps`,0,16)
         draw.fillText(`(${Math.round(mx)}, ${Math.round(my)})`,0,40)
+        draw.fillText(`Down: ${mdown}`,0,64)
+        draw.fillText(`Hovered: ${_hoveredEntities}`,0,88)
+        draw.fillText(`${_entities.length} entities`,0,112)
     }
 
     draw.fillStyle = "yellow"
@@ -693,13 +723,6 @@ function _tick(a) {
                 }
             }
             entity.activeCollisions = layers
-        }
-    }
-
-    downEntity = {mousePriority: Infinity}
-    if (mdown) {
-        for (let entity of _hoveredEntities) {
-            if (entity.mousePriority < downEntity.mousePriority) downEntity = entity
         }
     }
 
