@@ -1,71 +1,5 @@
 "use strict";
 
-/*
-let testEntity = new Sprite()
-testEntity.setImage("ligandtest.png")
-testEntity.collisions = true
-testEntity.hasMouseCollision = true
-testEntity.addCallback(Entity.Callbacks.TICK, (e) => {
-    if (e.mouseDown) {
-        mdown = false
-        console.log('clicked')
-        World.addChild(new Particle(`hsl(${Math.random() * 360}deg, 90%, 50%)`, Math.random() * width, Math.random() * height, 90))
-    }
-})
-testEntity.y = 300
-World.addChild(testEntity)
-
-let curveFollower = new Sprite()
-curveFollower.setTriangle("blue")
-curveFollower.name = "triangle"
-let curve = new Bezier(50, 700, 700, 200, 400, 10)
-curveFollower.addCallback(Entity.Callbacks.TICK, (e) => {
-    e.x = curve.x((timeElapsed/5) % 1) - e.width / 2
-    e.y = curve.y((timeElapsed/5) % 1) - e.height / 2
-    curve.draw()
-})
-World.addChild(curveFollower)
-
-let curveFollower2 = new Sprite()
-curveFollower2.setTriangle("blue")
-curveFollower2.name = "triangle"
-let curve2 = new Bezier(50, 700, 700, 200, 900, 700)
-curveFollower2.addCallback(Entity.Callbacks.TICK, (e) => {
-    e.x = curve2.x((timeElapsed/5) % 1) - e.width / 2
-    e.y = curve2.y((timeElapsed/5) % 1) - e.height / 2
-    curve2.draw()
-})
-World.addChild(curveFollower2)
-
-let el = World.addChild(new UIElement(UIElement.Type.PRESS_BUTTON, "test text", 200, 50))
-el.x = 500
-el.y = 500
-
-let text = World.addChild(new Sprite(Sprite.DrawType.ELLIPSE, "blue"))
-text.collisions = true
-text.width = 400
-text.height = 400
-text.x = 600
-*/
-
-/*
-let x = World.addChild(new Sprite(Sprite.DrawType.RECT, "red"), 100, height/2 - 50)
-x.collisions = true
-x.collisionLayers = [0, 1]
-x.addCallback(Entity.Callbacks.TICK, () => {
-    x.x = mx
-    x.y = my
-})
-
-let receptor = World.addChild(new Sprite(Sprite.DrawType.RECT, "white"), width / 2 - 100, height/2 - 50)
-receptor.collisions = true
-receptor.personalLayers = [0]
-
-let receptor2 = World.addChild(new Sprite(Sprite.DrawType.CIRCLE, "white"), width / 2 + 60, height/2 - 80)
-receptor2.collisions = true
-receptor2.personalLayers = [1]
- */
-
 let Phases = Object.freeze({
     MAIN_MENU: 0,
     GAMEPLAY: 1,
@@ -75,20 +9,91 @@ let level = 1
 let gamePhase = Phases.MAIN_MENU
 let phaseDetails = {}
 
+let TargetLocation = Object.keys({
+    AUTOCRINE: 0,
+    PARACRINE: 1,
+    ENDOCRINE: 2,
+})
+
+let levels = {
+    1: {
+        playtime: 40,
+        ligands: 200,
+        attributes: {
+            "energy": {
+                "name": "ATP",
+                "delta": -0.04,
+                "value": 1,
+                "cap": [0,1],
+                "safe": [0.1,Infinity],
+                "tooMuch": "",
+                "tooLittle": "You ran out of energy!"
+            },
+            "glucose": {
+                "name": "Glucose",
+                "delta": 0,
+                "value": 1,
+                "cap": [0,1],
+                "safe": [-Infinity,Infinity],
+                "tooMuch": "",
+                "tooLittle": ""
+            },
+            "oxygen": {
+                "name": "O₂",
+                "delta": 0.3,
+                "value": 1,
+                "cap": [0,1],
+                "safe": [-Infinity,Infinity],
+                "tooMuch": "",
+                "tooLittle": ""
+            },
+        },
+        actions: {
+            "cr": {
+                "name": "Cellular Respiration",
+                "ligand": "cr",
+                "target": "",
+                "color": "",
+            },
+            "hunger": {
+                "name": "Send Hunger Signal",
+                "ligand": "cr",
+                "color": "",
+            }
+        },
+        receptors: {
+            "respiration": {
+                "ligand": ["cr"],
+                "location": "",
+                "color": ""
+            }
+        }
+    }
+}
+
 /*
 Energy: constantly goes down at a slow pace
+Glucose: Stays constant, modified by other actions.
 Oxygen: constantly goes up.
 Waste: constantly goes up.
 pH: Stays constant and is modified by other actions
 Disease: Occasionally pops up and then increases exponentially. Increases rate of energy consumption.
 Temperature: Swings either down or up randomly
 
-Actions:
+Autocrine Actions:
 Cellular Respiration - Creates energy, consumes oxygen, decreases pH
 Exocytosis - Uses energy, reduces waste, increases pH (in reality, this usually decreases pH)
 Release antibodies - uses energy, increases waste
 Active Ion Transport - uses energy, increases pH
 Burn energy - uses energy, increases temperature
+
+Paracrine Actions:
+Warn of disease - Warns other cells of disease but uses a lot of energy.
+
+Endocrine Actions:
+Hunger - Makes organism hungry and will cause delayed increase in glucose.
+
+Juxtacrine Actions: n/a
  */
 let cell = {
     "energy": {
@@ -99,6 +104,15 @@ let cell = {
         "safe": [0.1,Infinity],
         "tooMuch": "",
         "tooLittle": "You ran out of energy!"
+    },
+    "glucose": {
+        "name": "Glucose",
+        "delta": 0,
+        "value": 1,
+        "cap": [0,1],
+        "safe": [-Infinity,Infinity],
+        "tooMuch": "",
+        "tooLittle": ""
     },
     "oxygen": {
         "name": "O₂",
@@ -115,7 +129,7 @@ let cell = {
         "value": 0,
         "cap": [0,1],
         "safe": [-Infinity,0.9],
-        "tooMuch": "There was too many waste products in the cell", // todo: should this be was or were
+        "tooMuch": "There was too many waste products in the cell", // todo: should this be was or were?
         "tooLittle": ""
     },
     "ph": {
@@ -149,22 +163,66 @@ let cell = {
 
 let mainMenu = World.addChild(new Group())
 {
-    mainMenu.addChild(new Sprite(Sprite.DrawType.TEXT_LARGE, "bio game", undefined, 400, 50)).setPosition((width - 400)/2, 170)
+    mainMenu.addChild(new Sprite(Sprite.DrawType.TEXT_LARGE, GAME_NAME, undefined, 400, 50)).setPosition((width)/2, 170)
 
     function levelButton(num) {
-        let level = mainMenu.addChild(new UIElement(UIElement.Type.PRESS_BUTTON, `Level ${num}`, 500, 50, () => {
+        let level = mainMenu.addChild(new UIElement(UIElement.Type.PRESS_BUTTON, `Level ${num}`, 300, 50, () => {
             loadLevel(num)
         }))
-        level.setPosition((width - level.width) / 2, 200 + 70 * num)
+        level.setPosition((width - level.width) / 2 + 200, 200 + 70 * num)
+        return level
     }
     levelButton(1)
-    levelButton(2)
-    levelButton(3)
-    levelButton(4)
+    levelButton(2).disableAction = true
+    levelButton(3).disableAction = true
+    levelButton(4).disableAction = true
+
+    let instructions = mainMenu.addChild(new Sprite())
+    instructions.setPosAndSize(100,200,400, 400)
+    instructions.setTextSmallWrap(`
+In this game, you are a cell trying to maintain homeostasis. You do this by sending out signals.
+Each signal may have positive effects on some metric and negative effects on others.
+The actions may not be perfectly accurate to real life, but the idea is to give you a better idea of cell signalling.
+As in real life, you have limited resources and must manage them carefully. 
+To represent limited resources here, you may only send out some amount of ligands (signals) per level. Play conservatively to balance it all.
+Each level builds upon the previous ones by adding more for you to keep track of.
+Some receptors may respond to multiple ligands. Signals that help with one attribute may hurt another.
+   `.trim())
+    instructions.hasMouseCollision = true
+    instructions.collisions = false
 }
 let gameplay = World.addChild(new Group())
 {
+    var loadLevel = function(num) {
+        level = num
+        gamePhase = Phases.GAMEPLAY
+        World.removeChild(gameplay)
+        gameplay = World.addChild(new Group())
+        console.log('loaded ' + num)
+
+        console.log(levels[num])
+        phaseDetails["playtime"] = levels[num]["playtime"]
+        phaseDetails["ligands"] = levels[num]["ligands"]
+        cell = levels[num]["attributes"]
+        phaseDetails["actions"] = levels[num]["actions"]
+
+        let actions = phaseDetails["actions"]
+        let i = 0
+        for (let id of Object.keys(actions)) {
+            let action = actions[id]
+            let button = new UIElement(UIElement.Type.HOLD_BUTTON, action.name, 300, 75)
+            gameplay.addChild(button)
+            button.x = width - 300
+            button.y = i * 80
+
+            i++
+        }
+    }
+
     var gameplayTick = function() {
+        phaseDetails["playtime"] -= dt
+        if (phaseDetails["playtime"] < 0) console.log("win! yippee")
+
         for (let attr of Object.keys(cell)) {
             cell[attr]["value"] = Math.max(cell[attr]["cap"][0], Math.min(cell[attr]["cap"][1], cell[attr]["value"] + cell[attr]["delta"] * dt))
             if (cell[attr]["safe"][1] < cell[attr]["value"]) {
@@ -193,11 +251,7 @@ let deathScreen = World.addChild(new Group())
 
     let backToMenu = deathScreen.addChild(new UIElement(UIElement.Type.PRESS_BUTTON, "Menu", 150, 60, () => {
         gamePhase = Phases.MAIN_MENU
-        console.log("test")
     }))
-    backToMenu.addCallback(Entity.Callbacks.TICK, (e) => {
-        console.log(e.hovered, e.mouseDown, mdown)
-    })
     backToMenu.setPosition(width/2 + 10, height/2 + 30)
 
     var cellDeath = function(reason) {
@@ -214,8 +268,3 @@ World.addCallback(Entity.Callbacks.TICK, () => {
         gameplayTick()
     }
 })
-
-function loadLevel(num) {
-    level = num
-    gamePhase = Phases.GAMEPLAY
-}

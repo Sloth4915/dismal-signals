@@ -5,6 +5,7 @@ let fonts = ["Metamorphous"]
 const smallFont = "16px Metamorphous, Arial"
 const mediumFont = "24px Metamorphous, Arial"
 const largeFont = "32px Metamorphous, Arial"
+const GAME_NAME = "Cell Signal Game"
 //#endregion
 
 //#region Initial Setup
@@ -16,6 +17,8 @@ document.body.style["width"] = "100vw"
 document.body.style["height"] = "100vh"
 document.body.style["background-color"] = "black"
 
+document.title = GAME_NAME
+
 let width = 1200
 let height = 800
 let canvas = document.createElement("canvas")
@@ -26,6 +29,7 @@ canvas.style.maxWidth = "100vw"
 canvas.style.maxHeight = "100vh"
 let draw = canvas.getContext("2d")
 draw.font = smallFont
+draw.imageSmoothingEnabled = draw.webkitImageSmoothingEnabled = draw.mozImageSmoothingEnabled = false
 
 let _fontsLoading = fonts.length
 for (let font of fonts) {
@@ -195,6 +199,9 @@ class Entity {
             draw.stroke();
         }
         if (this.hasMouseCollision) {
+            draw.lineWidth = "1"
+            draw.strokeStyle = "purple"
+            draw.strokeRect(this.x + 2, this.y + 2, this.width - 4, this.height - 4)
             if (this.hovered) {
                 draw.lineWidth = "4"
                 draw.strokeStyle = draw.fillStyle = "green"
@@ -338,7 +345,7 @@ class Sprite extends Entity {
         this.height = height
 
         if (type !== null) {
-                 if (type === Sprite.DrawType.IMAGE) this.setImage(option0)
+                 if (type === Sprite.DrawType.IMAGE) this.setImage(option0, option1)
             else if (type === Sprite.DrawType.TRIANGLE) this.setTriangle(option0)
             else if (type === Sprite.DrawType.COMPLEX) this.setComplex(option0)
             else if (type === Sprite.DrawType.TEXT_SMALL) this.setTextSmall(option0, option1)
@@ -346,6 +353,7 @@ class Sprite extends Entity {
             else if (type === Sprite.DrawType.TEXT_LARGE) this.setTextLarge(option0, option1)
             else if (type === Sprite.DrawType.RECT) this.setRect(option0, option1)
             else if (type === Sprite.DrawType.CIRCLE) this.setCircle(option0)
+            else if (type === Sprite.DrawType.GRADIENT) this.setGradient(option0)
         } else this.setComplex(() => {})
     }
     tick() {
@@ -358,6 +366,7 @@ class Sprite extends Entity {
         draw.translate(this.x + this.width / 2, this.y + this.height / 2);
         draw.rotate(this.r)
         draw.globalAlpha = this.opacity
+
         draw.drawImage(
             this.drawCanvas,
             -this.width / 2 * this.scaleX,
@@ -368,12 +377,15 @@ class Sprite extends Entity {
         draw.restore()
     }
 
-    setImage(src) {
+    setImage(src, hue = 0) {
         this.setComplex((ctx, w, h) => {
             let img = new Image()
-            img.src = src
+            img.src = src.startsWith("assets/") ? src : "assets/sprite/"+src+".png"
+
             img.addEventListener("load", () => {
+                ctx.filter = `hue-rotate(${hue}deg)`
                 ctx.drawImage(img, 0, 0, w, h)
+                ctx.filter = "none"
             })
         })
     }
@@ -390,25 +402,72 @@ class Sprite extends Entity {
     }
     setTextSmall(text = "Missing Text", color="white") {
         this.setComplex((ctx,w,h) => {
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'center';
             ctx.fillStyle = color
             ctx.font = smallFont
             ctx.fillText(text, w/2, h/2)
         })
     }
+    setTextSmallWrap(text = "Missing Text", color = "white") {
+        this.setComplex((ctx,w,h) => {
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'left';
+            text = text.split(/(?<= )/)
+            ctx.fillStyle = color
+            ctx.font = smallFont
+            let x = 0
+            let y = 0
+            for (let word of text) {
+                let size = ctx.measureText(word)
+                if (x + size.width > w) {
+                    x = 0
+                    y += size.actualBoundingBoxDescent + 8
+                }
+                ctx.fillText(word, x, y)
+                x += size.width
+            }
+        })
+    }
     setTextMedium(text = "Missing Text", color="white") {
         this.setComplex((ctx,w,h) => {
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'center';
             ctx.fillStyle = color
             ctx.font = mediumFont
             ctx.fillText(text, w/2, h/2)
         })
     }
+    setTextMediumWrap(text = "Missing Text", color = "white") {
+        this.setComplex((ctx,w,h) => {
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'left';
+            text = text.split(/(?<= )/)
+            ctx.fillStyle = color
+            ctx.font = mediumFont
+            let x = 0
+            let y = 0
+            for (let word of text) {
+                let size = ctx.measureText(word)
+                if (x + size.width > w) {
+                    x = 0
+                    y += size.actualBoundingBoxDescent + 8
+                }
+                ctx.fillText(word, x, y)
+                x += size.width
+            }
+        })
+    }
     setTextLarge(text = "Missing Text", color="white") {
         this.setComplex((ctx,w,h) => {
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'center';
             ctx.fillStyle = color
             ctx.font = largeFont
             ctx.fillText(text, w/2, h/2)
         })
     }
+    // TODO add large wrap
     setRect(color, radius = 0) {
         this.setComplex((ctx,w,h) => {
             ctx.fillStyle = color
@@ -420,13 +479,29 @@ class Sprite extends Entity {
     setCircle(color) {
         this.setRect(color, 10000)
     }
+    setGradient(colors) {
+        if (Array.isArray(colors[0])) {
+            let newColors = {}
+            for (let i = 0; i < colors.length; i++) {
+                newColors[i*(1/(colors.length-1))] = colors[i]
+            }
+            colors = newColors
+        }
+        console.log(colors)
+        this.setComplex((ctx, w, h) => {
+            let gradient = ctx.createLinearGradient(0, 0, 0, h)
+            for (let i of Object.keys(colors)) {
+                gradient.addColorStop(i, colors[i])
+            }
+            ctx.fillStyle = gradient
+            ctx.fillRect(0,0,width,height)
+        })
+    }
     /** Sets a complex canvas **/
     setComplex(callback) {
         this.drawCanvas = new OffscreenCanvas(this.width, this.height)
         this.drawCtx = this.drawCanvas.getContext("2d")
-        this.drawCtx.textBaseline = 'middle';
-        this.drawCtx.textAlign = 'center';
-
+        this.drawCtx.imageSmoothingEnabled = this.drawCtx.webkitImageSmoothingEnabled = this.drawCtx.mozImageSmoothingEnabled = false
         callback(this.drawCtx, this.width, this.height)
     }
 
@@ -437,11 +512,11 @@ class Sprite extends Entity {
         TEXT_SMALL: "small_text",
         TEXT_MEDIUM: "medium_text",
         TEXT_LARGE: "large_text",
-        // TODO: implement the following
         RECT: "rect",
         RECTANGLE: "rect",
         CIRCLE: "circle",
-        ELLIPSE: "circle"
+        ELLIPSE: "circle",
+        GRADIENT: "gradient"
     })
 }
 
@@ -472,7 +547,6 @@ class NineSlice extends Group {
 
     resetChildren() {
         if (typeof this.finishedInit === "undefined") return
-        console.warn('resetting children')
 
         let partialWidth = this.width - this.border * 2
         let partialHeight = this.height - this.border * 2
@@ -501,9 +575,7 @@ class NineSlice extends Group {
     //#region Setters
     get x() {return super.x}
     set x(a) {
-        console.log(this.x, a)
         super.x = a
-        console.log(this.x)
         this.resetChildren()
     }
     get y() {return super.y}
@@ -735,7 +807,7 @@ function _tick(a) {
 //#endregion Engine
 
 //#region Engine Config
-const debug = true
+const debug = false
 const clearConsolePerTick = false
 World.color = "rgb(26,4,49)"
 const CollisionLayers = Object.freeze({
