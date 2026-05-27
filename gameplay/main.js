@@ -216,16 +216,16 @@ let gameplay = World.addChild(new Group())
 
     var loadLevel = function(num) {
         level = num
-        gamePhase = Phases.GAMEPLAY
         World.removeChild(gameplay)
         gameplay = World.addChild(new Group())
-        console.log('loaded ' + num)
+        console.log('loading ' + num, levels[num])
 
-        console.log(levels[num])
-        phaseDetails["playtime"] = levels[num]["playtime"]
-        phaseDetails["ligands"] = levels[num]["ligands"]
-        cell = levels[num]["attributes"]
-        phaseDetails["actions"] = levels[num]["actions"]
+        let levelDetails = structuredClone(levels[num])
+
+        phaseDetails["playtime"] = levelDetails["playtime"]
+        phaseDetails["ligands"] = levelDetails["ligands"]
+        cell = levelDetails["attributes"]
+        phaseDetails["actions"] = levelDetails["actions"]
 
         let actions = phaseDetails["actions"]
         let i = 0
@@ -265,6 +265,8 @@ let gameplay = World.addChild(new Group())
         gameplay.addChild(new NineSlice("standard")).setBounds(i * (dialWidth + dialGap), height - 75, i * (dialWidth + dialGap) + 250, height)
         phaseDetails["ligandsText"] = new Sprite()
         gameplay.addChild(phaseDetails["ligandsText"]).setBounds(i * (dialWidth + dialGap), height - 75, i * (dialWidth + dialGap) + 250, height)
+
+        gamePhase = Phases.GAMEPLAY
     }
 
     function calculateIndicatorY(attr) {
@@ -279,11 +281,11 @@ let gameplay = World.addChild(new Group())
         for (let attr of Object.keys(cell)) {
             cell[attr]["value"] = Math.max(cell[attr]["cap"][0], Math.min(cell[attr]["cap"][1], cell[attr]["value"] + cell[attr]["delta"] * dt))
             if (cell[attr]["safe"][1] < cell[attr]["value"]) {
-                cellDeath(cell[attr]["tooMuch"])
+                cellDeath(cell[attr]["tooMuch"], attr)
                 return
             }
             if (cell[attr]["safe"][0] > cell[attr]["value"]) {
-                cellDeath(cell[attr]["tooLittle"])
+                cellDeath(cell[attr]["tooLittle"], attr)
                 return
             }
             cell[attr]["indicator"].y = calculateIndicatorY(cell[attr])
@@ -311,7 +313,8 @@ let deathScreen = World.addChild(new Group())
     }))
     backToMenu.setPosition(width/2 + 10, height/2 + 30)
 
-    var cellDeath = function(reason) {
+    var cellDeath = function(reason, attr) {
+        console.warn("Died due to ", reason, attr)
         deathReasonText.setTextMedium(reason, "red")
         gamePhase = Phases.DEAD
     }

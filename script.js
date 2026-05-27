@@ -9,6 +9,7 @@ const GAME_NAME = "Cell Signal Game"
 const bgColor = "rgb(26,4,49)"
 const debug = true
 const clearConsolePerTick = false
+const dtMultiplier = 1
 //#endregion
 
 //#region Initial Setup
@@ -751,13 +752,14 @@ function _tick(a) {
         requestAnimationFrame(_tick)
         return
     }
-    dt = (a - _time)/1000
+    dt = ((a - _time)/1000)
     if (dt > 1/15) { // If frame takes longer than a 15th of a second, kill it (dt will be too high and may cause issues)
         _time = a
         timeElapsed += dt
         requestAnimationFrame(_tick)
         return
     }
+    dt *= dtMultiplier
 
     if (clearConsolePerTick) console.clear()
 
