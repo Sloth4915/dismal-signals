@@ -27,7 +27,14 @@ let levels = {
                 "cap": [0,1],
                 "safe": [0.1,Infinity],
                 "tooMuch": "",
-                "tooLittle": "You ran out of energy!"
+                "tooLittle": "You ran out of energy!",
+                "icon": "atp",
+                "colors": {
+                    0: "red",
+                    0.1: "red",
+                    0.3: "yellow",
+                    1: "green"
+                }
             },
             "glucose": {
                 "name": "Glucose",
@@ -36,7 +43,12 @@ let levels = {
                 "cap": [0,1],
                 "safe": [-Infinity,Infinity],
                 "tooMuch": "",
-                "tooLittle": ""
+                "tooLittle": "",
+                "icon": "glucose",
+                "colors": {
+                    0: "yellow",
+                    1: "green"
+                }
             },
             "oxygen": {
                 "name": "O₂",
@@ -45,7 +57,12 @@ let levels = {
                 "cap": [0,1],
                 "safe": [-Infinity,Infinity],
                 "tooMuch": "",
-                "tooLittle": ""
+                "tooLittle": "",
+                "icon": "o2",
+                "colors": {
+                    0: "yellow",
+                    1: "green"
+                }
             },
         },
         actions: {
@@ -193,6 +210,10 @@ Some receptors may respond to multiple ligands. Signals that help with one attri
 }
 let gameplay = World.addChild(new Group())
 {
+    let dialHeight = 190
+    let dialWidth = 60
+    let dialGap = 10
+
     var loadLevel = function(num) {
         level = num
         gamePhase = Phases.GAMEPLAY
@@ -217,6 +238,38 @@ let gameplay = World.addChild(new Group())
 
             i++
         }
+
+        let attrs = cell
+        i = 0;
+        for (let attrId of Object.keys(attrs)) {
+            let attr = attrs[attrId]
+
+            let gradient = new Sprite(Sprite.DrawType.GRADIENT, attr["colors"], null, dialWidth, dialHeight)
+            gameplay.addChild(gradient)
+            gradient.r = Math.PI
+            gradient.setPosition(i * (dialWidth + dialGap), height - dialHeight)
+
+            let icon = new Sprite(Sprite.DrawType.IMAGE, attr["icon"], null, dialWidth, dialWidth)
+            gameplay.addChild(icon)
+            icon.setPosition(i * (dialWidth + dialGap), height - dialHeight - dialWidth)
+
+            let indicator = cell[attrId]["indicator"] = new Sprite(Sprite.DrawType.RECT, "black", 4, dialWidth, 10)
+            let indicator2 = cell[attrId]["indicator2"] = new Sprite(Sprite.DrawType.RECT, "yellow", 4, dialWidth, 6)
+            gameplay.addChild(indicator)
+            gameplay.addChild(indicator2)
+            indicator.x = indicator2.x = i * (dialWidth + dialGap)
+
+            i++
+        }
+
+        gameplay.addChild(new NineSlice("standard")).setBounds(i * (dialWidth + dialGap), height - 75, i * (dialWidth + dialGap) + 250, height)
+        phaseDetails["ligandsText"] = new Sprite()
+        gameplay.addChild(phaseDetails["ligandsText"]).setBounds(i * (dialWidth + dialGap), height - 75, i * (dialWidth + dialGap) + 250, height)
+    }
+
+    function calculateIndicatorY(attr) {
+        let y = height - dialHeight * (attr.value - attr.cap[0]) / (attr.cap[1] - attr.cap[0])
+        return y
     }
 
     var gameplayTick = function() {
@@ -233,7 +286,11 @@ let gameplay = World.addChild(new Group())
                 cellDeath(cell[attr]["tooLittle"])
                 return
             }
+            cell[attr]["indicator"].y = calculateIndicatorY(cell[attr])
+            cell[attr]["indicator2"].y = calculateIndicatorY(cell[attr]) + 2
         }
+
+        phaseDetails["ligandsText"].setTextMedium(`${phaseDetails.ligands} ligands left`)
     }
 }
 let deathScreen = World.addChild(new Group())
@@ -268,3 +325,5 @@ World.addCallback(Entity.Callbacks.TICK, () => {
         gameplayTick()
     }
 })
+
+loadLevel(1)

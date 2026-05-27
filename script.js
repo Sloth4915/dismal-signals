@@ -1,11 +1,14 @@
 "use strict";
 
-//#region Engine Config Part 1
+//#region Engine Config
 let fonts = ["Metamorphous"]
 const smallFont = "16px Metamorphous, Arial"
 const mediumFont = "24px Metamorphous, Arial"
 const largeFont = "32px Metamorphous, Arial"
 const GAME_NAME = "Cell Signal Game"
+const bgColor = "rgb(26,4,49)"
+const debug = true
+const clearConsolePerTick = false
 //#endregion
 
 //#region Initial Setup
@@ -487,7 +490,6 @@ class Sprite extends Entity {
             }
             colors = newColors
         }
-        console.log(colors)
         this.setComplex((ctx, w, h) => {
             let gradient = ctx.createLinearGradient(0, 0, 0, h)
             for (let i of Object.keys(colors)) {
@@ -719,6 +721,7 @@ class Particle extends Group {
 }
 
 const World = new Group()
+World.color = bgColor
 let _time = null
 let _entities = []
 let timeElapsed = 0
@@ -805,15 +808,3 @@ function _tick(a) {
 }
 
 //#endregion Engine
-
-//#region Engine Config
-const debug = false
-const clearConsolePerTick = false
-World.color = "rgb(26,4,49)"
-const CollisionLayers = Object.freeze({
-    LIGAND_A: 0,
-    RECEPTOR_A: 1,
-    LIGAND_B: 2,
-    RECEPTOR_B: 2,
-})
-//#endregion
