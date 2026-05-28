@@ -92,33 +92,61 @@ const SceneHandler = Object.freeze({
 let dt = 0
 let totalEntities = 0
 
+function factorial(n) {
+    if (n < 0) return undefined;
+    let result = 1;
+    for (let i = 2; i <= n; i++) {
+        result *= i;
+    }
+    return result;
+}
+
 class Bezier {
     /** XY0, XY2, optional XY1 */
-    constructor(x0, y0, x2, y2, x1 = x0 + (x2 - x0) * Math.random(), y1 = y0 + (y2 - y0) * Math.random()) {
-        this.x0 = x0
-        this.y0 = y0
-        this.x2 = x2
-        this.y2 = y2
-        this.x1 = x1
-        this.y1 = y1
+    constructor(points) {
+        this.points = points
+        this.drawT = 0
     }
     x(t) {
-        return (Math.pow(1-t,2) * this.x0) + (2 * (1 - t) * t * this.x1) + (Math.pow(t,2) * this.x2)
+        let x = 0
+        let n = this.points.length - 1
+        for (let i = 0; i <= n; i++) {
+            x += (factorial(n)/(factorial(i)*factorial(n-i)))
+                 *Math.pow(1-t, n-i)
+                 *Math.pow(t, i)
+                 *this.points[i][0]
+        }
+        return x
     }
     y(t) {
-        return (Math.pow(1-t,2) * this.y0) + (2 * (1 - t) * t * this.y1) + (Math.pow(t,2) * this.y2)
+        let y = 0
+        let n = this.points.length - 1
+        for (let i = 0; i <= n; i++) {
+            y += (factorial(n)/(factorial(i)*factorial(n-i))) // binomial coefficient
+                *Math.pow(1-t, n-i)
+                *Math.pow(t, i)
+                *this.points[i][1]
+        }
+        return y
     }
     draw() {
         if (debug) {
-            draw.fillStyle = "yellow"
-            draw.fillRect(this.x0 - 4, this.y0 - 4, 8, 8)
-            draw.fillRect(this.x1 - 4, this.y1 - 4, 8, 8)
-            draw.fillRect(this.x2 - 4, this.y2 - 4, 8, 8)
+            draw.fillStyle = "orange"
+            draw.fillRect(this.x(this.drawT)-4, this.y(this.drawT)-4, 16, 16)
 
+            this.drawT += (dt / dtMultiplier) * 0.5
+            if (this.drawT > 1) this.drawT -= 1
+
+            draw.fillStyle = "yellow"
+            for (let point of this.points) {
+                let x = point.x ?? point[0]
+                let y = point.y ?? point[1]
+                draw.fillRect(x-4, y-4, 16, 16)
+            }
             draw.lineWidth = "1"
             draw.strokeStyle = "rgba(255,255,255,0.3)"
-            draw.moveTo(this.x0, this.y0)
-            for (let t = 0; t < 1; t += 0.1) {
+            draw.moveTo(this.points[0].x ?? this.points[0][0], this.points[0].y ?? this.points[0][1])
+            for (let t = 0; t < 1; t += 0.025) {
                 draw.lineTo(this.x(t), this.y(t))
                 draw.fillRect(this.x(t) - 2, this.y(t) - 2, 4, 4)
             }
@@ -759,6 +787,7 @@ function _tick(a) {
         requestAnimationFrame(_tick)
         return
     }
+    let realDt = dt
     dt *= dtMultiplier
 
     if (clearConsolePerTick) console.clear()
@@ -771,7 +800,7 @@ function _tick(a) {
     if (debug) {
         draw.font = smallFont
         draw.fillStyle = "yellow"
-        draw.fillText(`${Math.round(1/dt)}fps`,0,16)
+        draw.fillText(`${Math.round(1/(realDt))}fps (${dtMultiplier} speed multiplier)`,0,16)
         draw.fillText(`(${Math.round(mx)}, ${Math.round(my)})`,0,40)
         draw.fillText(`Down: ${mdown}`,0,64)
         draw.fillText(`Hovered: ${_hoveredEntities}`,0,88)
