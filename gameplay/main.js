@@ -75,14 +75,20 @@ let levels = {
             "hunger": {
                 "name": "Send Hunger Signal",
                 "ligand": "cr",
-                "color": "",
+                "target": TargetLocation.ENDOCRINE,
+                "color": 200,
             }
         },
         receptors: {
             "respiration": {
                 "ligand": ["cr"],
-                "location": "",
-                "color": ""
+                "location": TargetLocation.AUTOCRINE,
+                "color": 20
+            },
+            "hunger": {
+                "ligand": ["cr"],
+                "location": TargetLocation.ENDOCRINE,
+                "color": 200
             }
         }
     }
@@ -219,6 +225,15 @@ let gameplay = World.addChild(new Group())
         World.removeChild(gameplay)
         gameplay = World.addChild(new Group())
         console.log('loading ' + num, levels[num])
+
+        let cells = new AnimatedSprite(width, height, ["bg/sprite_0", "bg/sprite_1", "bg/sprite_2", "bg/sprite_3"])
+        cells.fps = 2
+        gameplay.addChild(cells).setPosition(0,0)
+
+        let blood = new AnimatedSprite(width, height, ["bg_blood/00", "bg_blood/01", "bg_blood/02", "bg_blood/03", "bg_blood/04", "bg_blood/05", "bg_blood/06", "bg_blood/07", "bg_blood/08", "bg_blood/09", "bg_blood/10", "bg_blood/11"])
+        blood.fps = 40
+        blood.opacity = 0.25
+        gameplay.addChild(blood).setPosition(0,0)
 
         let levelDetails = structuredClone(levels[num])
 

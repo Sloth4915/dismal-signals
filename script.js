@@ -7,9 +7,12 @@ const mediumFont = "24px Metamorphous, Arial"
 const largeFont = "32px Metamorphous, Arial"
 const GAME_NAME = "Cell Signal Game"
 const bgColor = "rgb(26,4,49)"
-const debug = true
+const debug = false
+const debugShowBezier = false
 const clearConsolePerTick = false
 const dtMultiplier = 1
+let width = 1200
+let height = 800
 //#endregion
 
 //#region Initial Setup
@@ -23,8 +26,6 @@ document.body.style["background-color"] = "black"
 
 document.title = GAME_NAME
 
-let width = 1200
-let height = 800
 let canvas = document.createElement("canvas")
 document.body.appendChild(canvas)
 canvas.width = width
@@ -101,36 +102,44 @@ function factorial(n) {
     return result;
 }
 
-class Bezier {
-    /** XY0, XY2, optional XY1 */
+class Bezier1d {
     constructor(points) {
         this.points = points
+    }
+    p(t) {
+        let p = 0
+        let n = this.points.length - 1
+        for (let i = 0; i <= n; i++) {
+            p += (factorial(n)/(factorial(i)*factorial(n-i)))
+                *Math.pow(1-t, n-i)
+                *Math.pow(t, i)
+                *this.points[i]
+        }
+        return p
+    }
+}
+
+class Bezier2d {
+    /** XY0, XY2, optional XY1 */
+    constructor(points) {
+        let x = []
+        let y = []
+        for (let p of points) {
+            x.push(p["x"] ?? p[0])
+            y.push(p["y"] ?? p[1])
+        }
+        this.xCurve = new Bezier1d(x)
+        this.yCurve = new Bezier1d(y)
         this.drawT = 0
     }
     x(t) {
-        let x = 0
-        let n = this.points.length - 1
-        for (let i = 0; i <= n; i++) {
-            x += (factorial(n)/(factorial(i)*factorial(n-i)))
-                 *Math.pow(1-t, n-i)
-                 *Math.pow(t, i)
-                 *this.points[i][0]
-        }
-        return x
+        return this.xCurve.p(t)
     }
     y(t) {
-        let y = 0
-        let n = this.points.length - 1
-        for (let i = 0; i <= n; i++) {
-            y += (factorial(n)/(factorial(i)*factorial(n-i))) // binomial coefficient
-                *Math.pow(1-t, n-i)
-                *Math.pow(t, i)
-                *this.points[i][1]
-        }
-        return y
+        return this.yCurve.p(t)
     }
     draw() {
-        if (debug) {
+        if (debug && debugShowBezier) {
             draw.fillStyle = "orange"
             draw.fillRect(this.x(this.drawT)-4, this.y(this.drawT)-4, 16, 16)
 
@@ -362,8 +371,8 @@ class Group extends Entity {
     }
 }
 
-class Sprite extends Entity {
-    constructor(type = null, option0, option1, width = 200, height = 200) {
+class SpriteBase extends Entity {
+    constructor() {
         super()
         this.entityType = "sprite"
 
@@ -372,6 +381,36 @@ class Sprite extends Entity {
         this.scaleX = 1
         this.scaleY = 1
         this.opacity = 1
+    }
+
+    draw() {
+        draw.save()
+        draw.translate(this.x + this.width / 2, this.y + this.height / 2);
+        draw.rotate(this.r)
+        draw.globalAlpha = this.opacity
+
+        draw.drawImage(
+            this.drawCanvas,
+            -this.width / 2 * this.scaleX,
+            -this.height / 2 * this.scaleY,
+            this.scaleX * this.width,
+            this.scaleY * this.height
+        )
+        draw.restore()
+    }
+
+    /** Sets a complex canvas **/
+    setComplex(callback) {
+        this.drawCanvas = new OffscreenCanvas(this.width, this.height)
+        this.drawCtx = this.drawCanvas.getContext("2d")
+        this.drawCtx.imageSmoothingEnabled = this.drawCtx.webkitImageSmoothingEnabled = this.drawCtx.mozImageSmoothingEnabled = false
+        callback(this.drawCtx, this.width, this.height)
+    }
+}
+
+class Sprite extends SpriteBase {
+    constructor(type = null, option0, option1, width = 200, height = 200) {
+        super()
 
         this.width = width
         this.height = height
@@ -391,22 +430,6 @@ class Sprite extends Entity {
     tick() {
         super.tick()
         this.r += this.vr * dt
-    }
-    draw() {
-        super.draw()
-        draw.save()
-        draw.translate(this.x + this.width / 2, this.y + this.height / 2);
-        draw.rotate(this.r)
-        draw.globalAlpha = this.opacity
-
-        draw.drawImage(
-            this.drawCanvas,
-            -this.width / 2 * this.scaleX,
-            -this.height / 2 * this.scaleY,
-            this.scaleX * this.width,
-            this.scaleY * this.height
-        )
-        draw.restore()
     }
 
     setImage(src, hue = 0) {
@@ -528,13 +551,6 @@ class Sprite extends Entity {
             ctx.fillRect(0,0,width,height)
         })
     }
-    /** Sets a complex canvas **/
-    setComplex(callback) {
-        this.drawCanvas = new OffscreenCanvas(this.width, this.height)
-        this.drawCtx = this.drawCanvas.getContext("2d")
-        this.drawCtx.imageSmoothingEnabled = this.drawCtx.webkitImageSmoothingEnabled = this.drawCtx.mozImageSmoothingEnabled = false
-        callback(this.drawCtx, this.width, this.height)
-    }
 
     static DrawType = Object.freeze({
         IMAGE: "img",
@@ -549,6 +565,31 @@ class Sprite extends Entity {
         ELLIPSE: "circle",
         GRADIENT: "gradient"
     })
+}
+
+class AnimatedSprite extends SpriteBase {
+    constructor(width, height, frames) {
+        super()
+        this.width = width
+        this.height = height
+        this.fps = 4
+        this.time = 0
+        this.frames = []
+        for (let frame of frames) {
+            this.frames.push(new Sprite(Sprite.DrawType.IMAGE, frame, null,  this.width, this.height))
+        }
+    }
+    draw() {
+        this.time += dt
+        let frame = Math.floor((this.time * this.fps) % this.frames.length)
+        this.frames[frame].r = this.r
+        this.frames[frame].vr = this.vr
+        this.frames[frame].scaleX = this.scaleX
+        this.frames[frame].scaleY = this.scaleY
+        this.frames[frame].opacity = this.opacity
+        this.frames[frame].setPosAndSize(this.x,this.y,this.width,this.height)
+        this.frames[frame].draw()
+    }
 }
 
 class NineSlice extends Group {
