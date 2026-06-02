@@ -684,6 +684,9 @@ class UIElement extends Entity {
         this.text = new Sprite()
         this.setText(text)
 
+        this.time = 0
+        this.rate = 30
+
         this.width = width
         this.height = height
 
@@ -713,7 +716,11 @@ class UIElement extends Entity {
             mdown = false
             this.action(this)
         } else if (this.type === UIElement.Type.HOLD_BUTTON && this.mouseDown && this.hovered) {
-            this.action(this)
+            this.time -= dt
+            while (this.time < 0) {
+                this.time += 1/this.rate
+                this.action(this)
+            }
         }
     }
 

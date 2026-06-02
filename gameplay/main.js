@@ -1,6 +1,6 @@
 "use strict";
 
-let Phases = Object.freeze({
+const Phases = Object.freeze({
     MAIN_MENU: 0,
     GAMEPLAY: 1,
     DEAD: 2,
@@ -9,7 +9,7 @@ let level = 1
 let gamePhase = Phases.MAIN_MENU
 let phaseDetails = {}
 
-let TargetLocation = Object.keys({
+const TargetLocation = Object.freeze({
     AUTOCRINE: 0,
     PARACRINE: 1,
     ENDOCRINE: 2,
@@ -68,27 +68,31 @@ let levels = {
         actions: {
             "cr": {
                 "name": "Cellular Respiration",
-                "ligand": "cr",
-                "target": "",
+                "ligand": 1,
+                "target": TargetLocation.AUTOCRINE,
                 "color": "",
+                "rate": 30,
             },
             "hunger": {
                 "name": "Send Hunger Signal",
-                "ligand": "cr",
+                "ligand": 2,
                 "target": TargetLocation.ENDOCRINE,
                 "color": 200,
+                "rate": 5,
             }
         },
         receptors: {
             "respiration": {
-                "ligand": ["cr"],
+                "ligand": [1],
                 "location": TargetLocation.AUTOCRINE,
-                "color": 20
+                "color": 20,
+                "receptorStrength": 1,
             },
             "hunger": {
-                "ligand": ["cr"],
+                "ligand": [2],
                 "location": TargetLocation.ENDOCRINE,
-                "color": 200
+                "color": 200,
+                "receptorStrength": 1,
             }
         }
     }
@@ -219,6 +223,11 @@ let gameplay = World.addChild(new Group())
     let dialHeight = 190
     let dialWidth = 60
     let dialGap = 10
+    let receptorSize = 50
+    let receptorPadding = 20
+    let ligandSize = 20
+    let ligandMinSpeedMultiplier = 0.2
+    let ligandMaxSpeedMultiplier = 0.4
 
     var loadLevel = function(num) {
         level = num
@@ -242,11 +251,98 @@ let gameplay = World.addChild(new Group())
         cell = levelDetails["attributes"]
         phaseDetails["actions"] = levelDetails["actions"]
 
+        let takenLocationsForReceptors = []
+        let receptorLocations = {}
+        for (let receptorName of Object.keys(levelDetails["receptors"])) {
+            let receptor = levelDetails["receptors"][receptorName]
+            let entity = new Sprite(Sprite.DrawType.IMAGE, `receptor/${receptor.ligand[0]}`, receptor.color, receptorSize, receptorSize)
+            gameplay.addChild(entity)
+            entity.collisions = true
+            entity.collisionLayers = receptor.ligand
+            let x
+            let y
+            let w = receptorSize
+            let h = receptorSize
+            if (receptor.location === TargetLocation.AUTOCRINE) {
+                do {
+                    x = Math.random() * 550 + 40
+                    y = Math.random() * 200 + 400
+                    if (x < 240) y = Math.random() * 70 + 420
+                } while (isReceptorLocationTaken(x,y))
+                entity.r = Math.random() * Math.PI * 2
+            } else if (receptor.location === TargetLocation.PARACRINE) {
+                do {
+                    x = 650 + Math.random() * 40
+                    y = 380 + Math.random() * 400
+                } while (isReceptorLocationTaken(x,y))
+                entity.r = Math.random() * 0.3 - (Math.PI / 2) - 0.15
+            } else if (receptor.location === TargetLocation.ENDOCRINE) {
+                x = width+2
+                y = 100
+                w = 300
+                h = 400
+            }
+            entity.setPosAndSize(x,y,w,h)
+            takenLocationsForReceptors.push([x,y])
+            for (let ligand of receptor.ligand) {
+                if (typeof receptorLocations[ligand] === "undefined") receptorLocations[ligand] = []
+                for (let i = 0; i < receptor.receptorStrength; i++) {
+                    receptorLocations[ligand].push([x + w / 2, y + h / 2, receptor.location])
+                }
+            }
+        }
+
+        function isReceptorLocationTaken(x,y) {
+            for (let location of takenLocationsForReceptors) {
+                if (Math.sqrt(Math.pow(x-location[0],2)+Math.pow(y-location[1],2)) < receptorSize + receptorPadding) {
+                    return true
+                }
+            }
+            return false
+        }
+
         let actions = phaseDetails["actions"]
         let i = 0
         for (let id of Object.keys(actions)) {
             let action = actions[id]
-            let button = new UIElement(UIElement.Type.HOLD_BUTTON, action.name, 300, 75)
+            let button = new UIElement(UIElement.Type.HOLD_BUTTON, action.name, 300, 75, () => {
+                if (phaseDetails.ligands > 0) {
+                    let particle = gameplay.addChild(new Sprite(Sprite.DrawType.IMAGE, `ligand/${action.ligand}`, action.color, ligandSize, ligandSize))
+                    particle.r = Math.random() * Math.PI * 2
+                    particle.vr = Math.random()
+                    particle.setPos(210, 720)
+
+                    let target = receptorLocations[action.ligand][Math.floor(Math.random() * receptorLocations[action.ligand].length)]
+
+                    let points = [[210, 720]]
+
+                    if (target[2] === TargetLocation.AUTOCRINE) {
+                        points.push([Math.random() * 600, Math.random() * 380 + 400])
+                        points.push([Math.random() * 600, Math.random() * 380 + 400])
+                    }
+                    else if (target[2] === TargetLocation.PARACRINE) { // Same as autocrine
+                        points.push([Math.random() * 600, Math.random() * 380 + 400])
+                        points.push([Math.random() * 600, Math.random() * 380 + 400])
+                    }
+                    else if (target[2] === TargetLocation.ENDOCRINE) {
+                        points.push([Math.random() * 400,Math.random() * 300])
+                    }
+                    points.push(target)
+
+                    let curve = new Bezier2d(points)
+
+                    let t = 0
+                    let speed = ligandMinSpeedMultiplier + (Math.random() * (ligandMaxSpeedMultiplier - ligandMinSpeedMultiplier))
+                    particle.addCallback(Entity.Callbacks.TICK, () => {
+                        t = Math.min(t + dt * speed, 1)
+                        curve.draw()
+                        particle.setPos(curve.x(t) - ligandSize / 2, curve.y(t) - ligandSize / 2)
+                    })
+
+                    phaseDetails.ligands -= 1
+                }
+            })
+            button.rate = action.rate
             gameplay.addChild(button)
             button.x = width - 300
             button.y = i * 80
