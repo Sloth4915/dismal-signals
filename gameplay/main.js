@@ -1,5 +1,3 @@
-"use strict";
-
 const Phases = Object.freeze({
     MAIN_MENU: 0,
     GAMEPLAY: 1,
@@ -8,6 +6,117 @@ const Phases = Object.freeze({
 let level = 1
 let gamePhase = Phases.MAIN_MENU
 let phaseDetails = {}
+
+class CellularResponse {
+    constructor() {
+        this.responses = {"type":"block","do": []}
+        this.addingTo = [this.responses]
+    }
+
+    /**
+     * All comparisons are kinda loose. Must be greater or less by a threshold of 0.01.
+     * Equality is allowed if within 0.01
+     */
+    static Comparison = Object.freeze({
+        GREATER_THAN: ">",
+        LESS_THAN: "<",
+        EQUAL_TO: "="
+    })
+
+    once() {
+        this.addingTo.push({"type": "once", "do": []})
+        return this
+    }
+    withDelay(delay) {
+        this.addingTo.push({"type": "delay", "delay": delay, "do": []})
+        return this
+    }
+    persistently(length) {
+        this.addingTo.push({"type": "persistently", "length": length, "do": []})
+        return this
+    }
+    checkIf(a, conditional, b) {
+        this.addingTo.push({"type": "if", "a": a, "b": b, "conditional": conditional, "do": []})
+        return this
+    }
+    apply(attr, delta, applyDt = false) {
+        this.addingTo[this.addingTo.length-1]["do"].push({
+            "type": "apply",
+            "attr": attr,
+            "delta": delta,
+            "applyDt": applyDt,
+        })
+        return this
+    }
+    endBlock() {
+        this.addingTo[this.addingTo.length - 2]["do"].push(this.addingTo[this.addingTo.length - 1])
+        this.addingTo.splice(this.addingTo.length - 1, 1)
+        return this
+    }
+
+    build() {
+        while (this.addingTo.length > 1) {
+            this.endBlock()
+        }
+        return structuredClone(this).responses
+    }
+
+    static execute(response) {
+        let thingsToRemove = []
+        let thingsToAdd = []
+        for (let block of response["do"]) {
+            if (block.type === "once") {
+                thingsToRemove.push(block)
+                this.execute(block)
+            }
+            else if (block.type === "persistently") {
+                block.length -= dt
+                if (block.length < 0) thingsToRemove.push(block)
+                this.execute(block)
+            }
+            else if (block.type === "delay") {
+                block.delay -= dt
+                if (block.delay < 0) {
+                    thingsToRemove.push(block)
+                    thingsToAdd.push(...block["do"])
+                }
+            }
+            else if (block.type === "if") {
+                let a = block["a"]
+                let b = block["b"]
+                if (typeof a === "string") a = cell[a]["value"]
+                if (typeof b === "string") b = cell[b]["value"]
+                if (block.conditional === CellularResponse.Comparison.GREATER_THAN) {
+                    if (a - 0.01 > b) {
+                        this.execute(block)
+                    }
+                }
+                else if (block.conditional === CellularResponse.Comparison.LESS_THAN) {
+                    if (a + 0.01 < b) {
+                        this.execute(block)
+                    }
+                }
+                if (block.conditional === CellularResponse.Comparison.EQUAL_TO) {
+                    if (Math.abs(a - b) < 0.01) {
+                        this.execute(block)
+                    }
+                }
+            }
+            else if (block.type === "apply") {
+                cell[block.attr]["value"] = Math.min(Math.max(cell[block.attr]["value"] + block.delta * (block.applyDt ? dt : 1), cell[block.attr]["cap"][0]), cell[block.attr]["cap"][1])
+            }
+            else {
+                console.log(`${block.type} not implemented`, block)
+            }
+        }
+        for (let i of thingsToRemove) {
+            response["do"].splice(response["do"].indexOf(i), 1)
+        }
+        for (let i of thingsToAdd) {
+            response["do"].push(i)
+        }
+    }
+}
 
 const TargetLocation = Object.freeze({
     AUTOCRINE: 0,
@@ -87,12 +196,16 @@ let levels = {
                 "location": TargetLocation.AUTOCRINE,
                 "color": 20,
                 "receptorStrength": 1,
+                "response": new CellularResponse().once().apply("glucose", -0.02).endBlock()
+                            .persistently(0.5).checkIf("glucose", CellularResponse.Comparison.GREATER_THAN, 0).checkIf("oxygen", CellularResponse.Comparison.GREATER_THAN, 0).apply("oxygen", -0.09, true).apply("energy", 0.07, true)
+                            .build()
             },
             "hunger": {
                 "ligand": [2],
                 "location": TargetLocation.ENDOCRINE,
                 "color": 200,
                 "receptorStrength": 1,
+                "response": new CellularResponse().withDelay(1).persistently(0.5).apply("glucose", 0.1, true).build()
             }
         }
     }
@@ -225,9 +338,11 @@ let gameplay = World.addChild(new Group())
     let dialGap = 10
     let receptorSize = 50
     let receptorPadding = 20
-    let ligandSize = 20
+    let ligandSize = 32
     let ligandMinSpeedMultiplier = 0.2
     let ligandMaxSpeedMultiplier = 0.4
+
+    let currentResponses = []
 
     var loadLevel = function(num) {
         level = num
@@ -290,6 +405,15 @@ let gameplay = World.addChild(new Group())
                     receptorLocations[ligand].push([x + w / 2, y + h / 2, receptor.location])
                 }
             }
+
+            entity.addCallback(Entity.Callbacks.TICK, () => {
+                for (let e of entity.collidingWith) {
+                    if (e.parent !== null) { // Sometimes they linger for an extra tick or so
+                        e.parent.removeChild(e)
+                        currentResponses.push(structuredClone(receptor.response))
+                    }
+                }
+            })
         }
 
         function isReceptorLocationTaken(x,y) {
@@ -310,19 +434,16 @@ let gameplay = World.addChild(new Group())
                     let particle = gameplay.addChild(new Sprite(Sprite.DrawType.IMAGE, `ligand/${action.ligand}`, action.color, ligandSize, ligandSize))
                     particle.r = Math.random() * Math.PI * 2
                     particle.vr = Math.random()
-                    particle.setPos(210, 720)
+                    particle.collisions = true
+                    particle.personalLayers = [action.ligand]
 
                     let target = receptorLocations[action.ligand][Math.floor(Math.random() * receptorLocations[action.ligand].length)]
 
                     let points = [[210, 720]]
 
-                    if (target[2] === TargetLocation.AUTOCRINE) {
-                        points.push([Math.random() * 600, Math.random() * 380 + 400])
-                        points.push([Math.random() * 600, Math.random() * 380 + 400])
-                    }
-                    else if (target[2] === TargetLocation.PARACRINE) { // Same as autocrine
-                        points.push([Math.random() * 600, Math.random() * 380 + 400])
-                        points.push([Math.random() * 600, Math.random() * 380 + 400])
+                    if (target[2] === TargetLocation.AUTOCRINE || target[2] === TargetLocation.PARACRINE) {
+                        points.push([Math.random() * 600, Math.random() * 440 + 400])
+                        points.push([Math.random() * 600, Math.random() * 440 + 400])
                     }
                     else if (target[2] === TargetLocation.ENDOCRINE) {
                         points.push([Math.random() * 400,Math.random() * 300])
@@ -377,17 +498,31 @@ let gameplay = World.addChild(new Group())
         phaseDetails["ligandsText"] = new Sprite()
         gameplay.addChild(phaseDetails["ligandsText"]).setBounds(i * (dialWidth + dialGap), height - 75, i * (dialWidth + dialGap) + 250, height)
 
+        gameplay.addChild(new NineSlice("standard")).setBounds(i * (dialWidth + dialGap) + 254, height - 75, i * (dialWidth + dialGap) + 334, height)
+        phaseDetails["timeLeftText"] = new Sprite()
+        gameplay.addChild(phaseDetails["timeLeftText"]).setBounds(i * (dialWidth + dialGap) + 254, height - 75, i * (dialWidth + dialGap) + 334, height)
+
+
         gamePhase = Phases.GAMEPLAY
     }
 
     function calculateIndicatorY(attr) {
-        let y = height - dialHeight * (attr.value - attr.cap[0]) / (attr.cap[1] - attr.cap[0])
+        let y = Math.min(height - dialHeight * (attr.value - attr.cap[0]) / (attr.cap[1] - attr.cap[0]), height - 10)
         return y
     }
 
     var gameplayTick = function() {
         phaseDetails["playtime"] -= dt
         if (phaseDetails["playtime"] < 0) console.log("win! yippee")
+
+        let deadResponses = []
+        for (let response of currentResponses) {
+            CellularResponse.execute(response)
+            if (response["do"].length < 0) deadResponses.push(response)
+        }
+        for (let response of deadResponses) {
+            currentResponses.splice(currentResponses.indexOf(response), 1)
+        }
 
         for (let attr of Object.keys(cell)) {
             cell[attr]["value"] = Math.max(cell[attr]["cap"][0], Math.min(cell[attr]["cap"][1], cell[attr]["value"] + cell[attr]["delta"] * dt))
@@ -404,6 +539,7 @@ let gameplay = World.addChild(new Group())
         }
 
         phaseDetails["ligandsText"].setTextMedium(`${phaseDetails.ligands} ligands left`)
+        phaseDetails["timeLeftText"].setTextMedium(`${Math.floor(phaseDetails.playtime/60)}:${Math.floor(phaseDetails.playtime % 60)}`)
     }
 }
 let deathScreen = World.addChild(new Group())

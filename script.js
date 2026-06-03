@@ -179,6 +179,7 @@ class Entity {
         this.personalLayers = []
         this.collisionLayers = []
         this.activeCollisions = []
+        this.collidingWith = []
         this.vx = 0
         this.vy = 0
 
@@ -861,10 +862,11 @@ function _tick(a) {
     for (let entity of _entities) {
         if (!entity.collisions) continue
         let layers = []
+        let collidingWith = []
         for (let check of _entities) {
             if (check === entity || !check.collisions) continue
             for (let layer of entity.collisionLayers) {
-                if (check.personalLayers.includes(layer) && !layers.includes(layer)) {
+                if (check.personalLayers.includes(layer)) {
                     let points = [
                         {x: check.left, y: check.top},
                         {x: check.right, y: check.top},
@@ -872,11 +874,15 @@ function _tick(a) {
                         {x: check.right, y: check.bottom}
                     ]
                     for (let p of points) {
-                        if (entity.left < p.x && p.x < entity.right && entity.top < p.y && p.y < entity.bottom) layers.push(layer)
+                        if (entity.left < p.x && p.x < entity.right && entity.top < p.y && p.y < entity.bottom) {
+                            layers.push(layer)
+                            collidingWith.push(check)
+                        }
                     }
                 }
             }
             entity.activeCollisions = layers
+            entity.collidingWith = collidingWith
         }
     }
 
