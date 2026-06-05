@@ -127,12 +127,12 @@ const TargetLocation = Object.freeze({
 
 let levels = {
     1: {
-        playtime: 15,
+        playtime: 45,
         ligands: 200,
         attributes: {
             "energy": {
                 "name": "ATP",
-                "delta": -0.04,
+                "delta": -0.0525,
                 "value": 1,
                 "cap": [0,1],
                 "safe": [0.1,Infinity],
@@ -184,7 +184,7 @@ let levels = {
                 "rate": 30,
             },
             "hunger": {
-                "name": "Send Hunger Signal",
+                "name": "Hunger",
                 "ligand": 2,
                 "target": TargetLocation.ENDOCRINE,
                 "color": 200,
@@ -211,12 +211,12 @@ let levels = {
         }
     },
     2: {
-        playtime: 20,
-        ligands: 200,
+        playtime: 60,
+        ligands: 250,
         attributes: {
             "energy": {
                 "name": "ATP",
-                "delta": -0.04,
+                "delta": -0.0525,
                 "value": 1,
                 "cap": [0,1],
                 "safe": [0.1,Infinity],
@@ -258,6 +258,20 @@ let levels = {
                     1: "green"
                 }
             },
+            "waste": {
+                "name": "Waste",
+                "delta": 0.032,
+                "value": 0,
+                "cap": [0,1],
+                "safe": [0,0.95],
+                "tooMuch": "You filled with waste products",
+                "tooLittle": "",
+                "icon": "waste",
+                "colors": {
+                    0: "green",
+                    1: "brown"
+                }
+            },
         },
         actions: {
             "cr": {
@@ -268,12 +282,19 @@ let levels = {
                 "rate": 30,
             },
             "hunger": {
-                "name": "Send Hunger Signal",
+                "name": "Hunger",
                 "ligand": 2,
                 "target": TargetLocation.ENDOCRINE,
                 "color": 200,
                 "rate": 5,
-            }
+            },
+            "exocytosis": {
+                "name": "Exocytosis",
+                "ligand": 3,
+                "target": TargetLocation.AUTOCRINE,
+                "color": 100,
+                "rate": 3,
+            },
         },
         receptors: {
             "respiration": {
@@ -285,6 +306,16 @@ let levels = {
                     .persistently(0.5).checkIf("glucose", CellularResponse.Comparison.GREATER_THAN, 0).checkIf("oxygen", CellularResponse.Comparison.GREATER_THAN, 0).apply("oxygen", -0.09, true).apply("energy", 0.07, true)
                     .build()
             },
+            "exocytosis": {
+                "ligand": [3],
+                "location": TargetLocation.AUTOCRINE,
+                "color": 100,
+                "receptorStrength": 1,
+                "response": new CellularResponse().withDelay(1).once()
+                    .checkIf("energy", CellularResponse.Comparison.GREATER_THAN, 0.1)
+                    .apply("energy", -0.05).apply("waste", -0.1)
+                    .build()
+            },
             "hunger": {
                 "ligand": [2],
                 "location": TargetLocation.ENDOCRINE,
@@ -293,7 +324,7 @@ let levels = {
                 "response": new CellularResponse().withDelay(1).persistently(0.5).apply("glucose", 0.1, true).build()
             }
         }
-    }
+    },
 }
 
 /*
@@ -307,7 +338,7 @@ Temperature: Swings either down or up randomly
 
 Autocrine Actions:
 Cellular Respiration - Creates energy, consumes oxygen, decreases pH
-Exocytosis - Uses energy, reduces waste, increases pH (in reality, this usually decreases pH)
+Exocytosis - Uses energy, reduces waste, decrease pH
 Release antibodies - uses energy, increases waste
 Active Ion Transport - uses energy, increases pH
 Burn energy - uses energy, increases temperature
@@ -686,3 +717,5 @@ World.addCallback(Entity.Callbacks.TICK, () => {
         gameplayTick()
     }
 })
+
+loadLevel(2)

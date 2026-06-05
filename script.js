@@ -32,6 +32,7 @@ canvas.width = width
 canvas.height = height
 canvas.style.maxWidth = "100vw"
 canvas.style.maxHeight = "100vh"
+canvas.style["object-fit"] = "contain"
 let draw = canvas.getContext("2d")
 draw.font = smallFont
 draw.imageSmoothingEnabled = draw.webkitImageSmoothingEnabled = draw.mozImageSmoothingEnabled = false
