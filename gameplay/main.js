@@ -2,6 +2,7 @@ const Phases = Object.freeze({
     MAIN_MENU: 0,
     GAMEPLAY: 1,
     DEAD: 2,
+    VICTORY: 3,
 })
 let level = 1
 let gamePhase = Phases.MAIN_MENU
@@ -126,7 +127,7 @@ const TargetLocation = Object.freeze({
 
 let levels = {
     1: {
-        playtime: 40,
+        playtime: 15,
         ligands: 200,
         attributes: {
             "energy": {
@@ -199,6 +200,90 @@ let levels = {
                 "response": new CellularResponse().once().apply("glucose", -0.02).endBlock()
                             .persistently(0.5).checkIf("glucose", CellularResponse.Comparison.GREATER_THAN, 0).checkIf("oxygen", CellularResponse.Comparison.GREATER_THAN, 0).apply("oxygen", -0.09, true).apply("energy", 0.07, true)
                             .build()
+            },
+            "hunger": {
+                "ligand": [2],
+                "location": TargetLocation.ENDOCRINE,
+                "color": 200,
+                "receptorStrength": 1,
+                "response": new CellularResponse().withDelay(1).persistently(0.5).apply("glucose", 0.1, true).build()
+            }
+        }
+    },
+    2: {
+        playtime: 20,
+        ligands: 200,
+        attributes: {
+            "energy": {
+                "name": "ATP",
+                "delta": -0.04,
+                "value": 1,
+                "cap": [0,1],
+                "safe": [0.1,Infinity],
+                "tooMuch": "",
+                "tooLittle": "You ran out of energy!",
+                "icon": "atp",
+                "colors": {
+                    0: "red",
+                    0.1: "red",
+                    0.3: "yellow",
+                    1: "green"
+                }
+            },
+            "glucose": {
+                "name": "Glucose",
+                "delta": 0,
+                "value": 1,
+                "cap": [0,1],
+                "safe": [-Infinity,Infinity],
+                "tooMuch": "",
+                "tooLittle": "",
+                "icon": "glucose",
+                "colors": {
+                    0: "yellow",
+                    1: "green"
+                }
+            },
+            "oxygen": {
+                "name": "O₂",
+                "delta": 0.3,
+                "value": 1,
+                "cap": [0,1],
+                "safe": [-Infinity,Infinity],
+                "tooMuch": "",
+                "tooLittle": "",
+                "icon": "o2",
+                "colors": {
+                    0: "yellow",
+                    1: "green"
+                }
+            },
+        },
+        actions: {
+            "cr": {
+                "name": "Cellular Respiration",
+                "ligand": 1,
+                "target": TargetLocation.AUTOCRINE,
+                "color": "",
+                "rate": 30,
+            },
+            "hunger": {
+                "name": "Send Hunger Signal",
+                "ligand": 2,
+                "target": TargetLocation.ENDOCRINE,
+                "color": 200,
+                "rate": 5,
+            }
+        },
+        receptors: {
+            "respiration": {
+                "ligand": [1],
+                "location": TargetLocation.AUTOCRINE,
+                "color": 20,
+                "receptorStrength": 1,
+                "response": new CellularResponse().once().apply("glucose", -0.02).endBlock()
+                    .persistently(0.5).checkIf("glucose", CellularResponse.Comparison.GREATER_THAN, 0).checkIf("oxygen", CellularResponse.Comparison.GREATER_THAN, 0).apply("oxygen", -0.09, true).apply("energy", 0.07, true)
+                    .build()
             },
             "hunger": {
                 "ligand": [2],
@@ -312,10 +397,10 @@ let mainMenu = World.addChild(new Group())
         level.setPosition((width - level.width) / 2 + 200, 200 + 70 * num)
         return level
     }
-    levelButton(1)
-    levelButton(2).disableAction = true
-    levelButton(3).disableAction = true
-    levelButton(4).disableAction = true
+
+    for (let i of Object.keys(levels)) {
+        levelButton(i)
+    }
 
     let instructions = mainMenu.addChild(new Sprite())
     instructions.setPosAndSize(100,200,400, 400)
@@ -513,7 +598,11 @@ let gameplay = World.addChild(new Group())
 
     var gameplayTick = function() {
         phaseDetails["playtime"] -= dt
-        if (phaseDetails["playtime"] < 0) console.log("win! yippee")
+        if (phaseDetails["playtime"] < 0) {
+            updateWinScreen()
+            gamePhase = Phases.VICTORY
+            return
+        }
 
         let deadResponses = []
         for (let response of currentResponses) {
@@ -539,7 +628,7 @@ let gameplay = World.addChild(new Group())
         }
 
         phaseDetails["ligandsText"].setTextMedium(`${phaseDetails.ligands} ligands left`)
-        phaseDetails["timeLeftText"].setTextMedium(`${Math.floor(phaseDetails.playtime/60)}:${Math.floor(phaseDetails.playtime % 60)}`)
+        phaseDetails["timeLeftText"].setTextMedium(`${Math.floor(phaseDetails.playtime/60)}:${(Math.floor(phaseDetails.playtime % 60) + "").padStart(2, "0")}`)
     }
 }
 let deathScreen = World.addChild(new Group())
@@ -566,14 +655,34 @@ let deathScreen = World.addChild(new Group())
         gamePhase = Phases.DEAD
     }
 }
+let victoryScreen = World.addChild(new Group())
+{
+    let text = victoryScreen.addChild(new Sprite(Sprite.DrawType.TEXT_LARGE, `Level Complete!`, "white", 500, 200))
+    text.setPosition(width/2-250,height/2-150)
+
+    let nextLevel = victoryScreen.addChild(new UIElement(UIElement.Type.PRESS_BUTTON, "Next level", 150, 60, () => {
+        loadLevel(parseInt(level) + 1)
+    }))
+    nextLevel.setPosition(width/2 - 160, height/2 + 30)
+
+    let backToMenu = victoryScreen.addChild(new UIElement(UIElement.Type.PRESS_BUTTON, "Menu", 150, 60, () => {
+        gamePhase = Phases.MAIN_MENU
+    }))
+    backToMenu.setPosition(width/2 + 10, height/2 + 30)
+
+    var updateWinScreen = function() {
+        let finalLevel = (level == Object.keys(levels).length)
+        nextLevel.disabled = finalLevel
+        backToMenu.setPosition(finalLevel ? width/2 - 75 : width/2 + 10, height/2 + 30)
+    }
+}
 
 World.addCallback(Entity.Callbacks.TICK, () => {
     mainMenu.disabled = !(gamePhase === Phases.MAIN_MENU)
     gameplay.disabled = !(gamePhase === Phases.GAMEPLAY)
     deathScreen.disabled = !(gamePhase === Phases.DEAD)
+    victoryScreen.disabled = !(gamePhase === Phases.VICTORY)
     if (gamePhase === Phases.GAMEPLAY) { // Gameplay
         gameplayTick()
     }
 })
-
-loadLevel(1)
