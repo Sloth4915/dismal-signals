@@ -437,12 +437,11 @@ let mainMenu = World.addChild(new Group())
     instructions.setPosAndSize(100,200,400, 400)
     instructions.setTextSmallWrap(`
 In this game, you are a cell trying to maintain homeostasis. You do this by sending out signals.
-Each signal may have positive effects on some metric and negative effects on others.
-The actions may not be perfectly accurate to real life, but the idea is to give you a better idea of cell signalling.
 As in real life, you have limited resources and must manage them carefully. 
 To represent limited resources here, you may only send out some amount of ligands (signals) per level. Play conservatively to balance it all.
 Each level builds upon the previous ones by adding more for you to keep track of.
 Some receptors may respond to multiple ligands. Signals that help with one attribute may hurt another.
+Remember that all models are wrong, but some are useful. This model of cells and cell signaling is gamified, and as such loses some biological accuracy.
    `.trim())
     instructions.hasMouseCollision = true
     instructions.collisions = false
@@ -717,5 +716,3 @@ World.addCallback(Entity.Callbacks.TICK, () => {
         gameplayTick()
     }
 })
-
-loadLevel(2)
