@@ -1281,5 +1281,3 @@ World.addCallback(Entity.Callbacks.TICK, () => {
         gameplayTick()
     }
 })
-
-loadLevel(5)
