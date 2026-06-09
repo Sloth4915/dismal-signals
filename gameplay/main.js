@@ -40,12 +40,23 @@ class CellularResponse {
         this.addingTo.push({"type": "if", "a": a, "b": b, "conditional": conditional, "do": []})
         return this
     }
+    chance(chance) {
+        this.addingTo.push({"type": "chance", "chance": chance, "do": []})
+        return this
+    }
     apply(attr, delta, applyDt = false) {
         this.addingTo[this.addingTo.length-1]["do"].push({
             "type": "apply",
             "attr": attr,
             "delta": delta,
             "applyDt": applyDt,
+        })
+        return this
+    }
+    callLevelFunction(func) {
+        this.addingTo[this.addingTo.length-1]["do"].push({
+            "type": "func",
+            "func": func
         })
         return this
     }
@@ -69,6 +80,10 @@ class CellularResponse {
             if (block.type === "once") {
                 thingsToRemove.push(block)
                 this.execute(block)
+            }
+            else if (block.type === "chance") {
+                thingsToRemove.push(block)
+                if (block.chance > Math.random()) this.execute(block)
             }
             else if (block.type === "persistently") {
                 block.length -= dt
@@ -106,6 +121,9 @@ class CellularResponse {
             else if (block.type === "apply") {
                 cell[block.attr]["value"] = Math.min(Math.max(cell[block.attr]["value"] + block.delta * (block.applyDt ? dt : 1), cell[block.attr]["cap"][0]), cell[block.attr]["cap"][1])
             }
+            else if (block.type === "func") {
+                levelFunctions[level][block.func].call()
+            }
             else {
                 console.log(`${block.type} not implemented`, block)
             }
@@ -124,6 +142,54 @@ const TargetLocation = Object.freeze({
     PARACRINE: 1,
     ENDOCRINE: 2,
 })
+
+const AttributeChangeTypes = Object.freeze({
+    CHANGE_AT_TIME: 0,
+    GROWTH: 1,
+})
+
+const levelFunctions = {
+    4: {
+        "paracrineDiseaseHelp": function() {
+            spawnLigand({
+                "name": "Signal",
+                "ligand": 6,
+                "target": TargetLocation.AUTOCRINE,
+                "color": 250,
+                "rate": 20,
+            }, [1000, 650])
+        },
+        "endocrineDiseaseHelp": function() {
+            spawnLigand({
+                "name": "Signal",
+                "ligand": 6,
+                "target": TargetLocation.AUTOCRINE,
+                "color": 250,
+                "rate": 20,
+            }, [-100, 0])
+        }
+    },
+    5: {
+        "paracrineDiseaseHelp": function() {
+            spawnLigand({
+                "name": "Signal",
+                "ligand": 6,
+                "target": TargetLocation.AUTOCRINE,
+                "color": 250,
+                "rate": 20,
+            }, [1000, 650])
+        },
+        "endocrineDiseaseHelp": function() {
+            spawnLigand({
+                "name": "Signal",
+                "ligand": 6,
+                "target": TargetLocation.AUTOCRINE,
+                "color": 250,
+                "rate": 20,
+            }, [-100, 0])
+        }
+    }
+}
 
 let levels = {
     1: {
@@ -188,7 +254,7 @@ let levels = {
                 "ligand": 2,
                 "target": TargetLocation.ENDOCRINE,
                 "color": 200,
-                "rate": 5,
+                "rate": 6,
             }
         },
         receptors: {
@@ -325,6 +391,541 @@ let levels = {
             }
         }
     },
+    3: {
+        playtime: 75,
+        ligands: 400,
+        attributes: {
+            "energy": {
+                "name": "ATP",
+                "delta": -0.035,
+                "value": 1,
+                "cap": [0,1],
+                "safe": [0.1,Infinity],
+                "tooMuch": "",
+                "tooLittle": "You ran out of energy!",
+                "icon": "atp",
+                "colors": {
+                    0: "red",
+                    0.1: "red",
+                    0.3: "yellow",
+                    1: "green"
+                }
+            },
+            "glucose": {
+                "name": "Glucose",
+                "delta": 0,
+                "value": 1,
+                "cap": [0,1],
+                "safe": [-Infinity,Infinity],
+                "tooMuch": "",
+                "tooLittle": "",
+                "icon": "glucose",
+                "colors": {
+                    0: "yellow",
+                    1: "green"
+                }
+            },
+            "oxygen": {
+                "name": "O₂",
+                "delta": 0.3,
+                "value": 1,
+                "cap": [0,1],
+                "safe": [-Infinity,Infinity],
+                "tooMuch": "",
+                "tooLittle": "",
+                "icon": "o2",
+                "colors": {
+                    0: "yellow",
+                    1: "green"
+                }
+            },
+            "waste": {
+                "name": "Waste",
+                "delta": 0.018,
+                "value": 0,
+                "cap": [0,1],
+                "safe": [0,0.95],
+                "tooMuch": "You filled with waste products",
+                "tooLittle": "",
+                "icon": "waste",
+                "colors": {
+                    0: "green",
+                    1: "brown"
+                }
+            },
+            "disease": {
+                "name": "disease",
+                "delta": [{type:AttributeChangeTypes.GROWTH, rate: 0.11},
+                    {type:AttributeChangeTypes.CHANGE_AT_TIME, time: 64, delta: 0.1},
+                    {type:AttributeChangeTypes.CHANGE_AT_TIME, time: 30, delta: 0.1}],
+                "value": 0,
+                "cap": [0,1],
+                "safe": [0,0.95],
+                "tooMuch": "You were overwhelmed with disease",
+                "tooLittle": "",
+                "icon": "disease",
+                "colors": {
+                    0: "green",
+                    0.1: "yellow",
+                    0.4: "red",
+                    1: "rgb(98,2,2)"
+                },
+                "cost": {
+                    "energy": -0.01
+                }
+            },
+        },
+        actions: {
+            "cr": {
+                "name": "Cellular Respiration",
+                "ligand": 1,
+                "target": TargetLocation.AUTOCRINE,
+                "color": "",
+                "rate": 30,
+            },
+            "hunger": {
+                "name": "Hunger",
+                "ligand": 2,
+                "target": TargetLocation.ENDOCRINE,
+                "color": 200,
+                "rate": 5,
+            },
+            "exocytosis": {
+                "name": "Exocytosis",
+                "ligand": 3,
+                "target": TargetLocation.AUTOCRINE,
+                "color": 100,
+                "rate": 3,
+            },
+            "antibodies": {
+                "name": "Antibodies",
+                "ligand": 4,
+                "target": TargetLocation.AUTOCRINE,
+                "color": 300,
+                "rate": 20,
+            },
+        },
+        receptors: {
+            "respiration": {
+                "ligand": [1],
+                "location": TargetLocation.AUTOCRINE,
+                "color": 20,
+                "receptorStrength": 1,
+                "response": new CellularResponse().once().apply("glucose", -0.02).endBlock()
+                    .persistently(0.55).checkIf("glucose", CellularResponse.Comparison.GREATER_THAN, 0).checkIf("oxygen", CellularResponse.Comparison.GREATER_THAN, 0).apply("oxygen", -0.09, true).apply("energy", 0.085, true)
+                    .build()
+            },
+            "exocytosis": {
+                "ligand": [3],
+                "location": TargetLocation.AUTOCRINE,
+                "color": 100,
+                "receptorStrength": 1,
+                "response": new CellularResponse().withDelay(1).once()
+                    .checkIf("energy", CellularResponse.Comparison.GREATER_THAN, 0.1)
+                    .apply("energy", -0.05).apply("waste", -0.1)
+                    .build()
+            },
+            "hunger": {
+                "ligand": [2],
+                "location": TargetLocation.ENDOCRINE,
+                "color": 200,
+                "receptorStrength": 1,
+                "response": new CellularResponse().withDelay(1).persistently(0.7).apply("glucose", 0.12, true).build()
+            },
+            "antibodies3": {
+                "ligand": [4],
+                "location": TargetLocation.AUTOCRINE,
+                "color": 300,
+                "receptorStrength": 3,
+                "response": new CellularResponse().persistently(0.4).apply("energy", -0.04, true).apply("waste", 0.04, true).endBlock()
+                    .withDelay(0.4).once().apply("disease", -0.05).build()
+            }
+        }
+    },
+    4: {
+        playtime: 75,
+        ligands: 600,
+        attributes: {
+            "energy": {
+                "name": "ATP",
+                "delta": -0.035,
+                "value": 1,
+                "cap": [0,1],
+                "safe": [0.1,Infinity],
+                "tooMuch": "",
+                "tooLittle": "You ran out of energy!",
+                "icon": "atp",
+                "colors": {
+                    0: "red",
+                    0.1: "red",
+                    0.3: "yellow",
+                    1: "green"
+                }
+            },
+            "glucose": {
+                "name": "Glucose",
+                "delta": 0,
+                "value": 1,
+                "cap": [0,1],
+                "safe": [-Infinity,Infinity],
+                "tooMuch": "",
+                "tooLittle": "",
+                "icon": "glucose",
+                "colors": {
+                    0: "yellow",
+                    1: "green"
+                }
+            },
+            "oxygen": {
+                "name": "O₂",
+                "delta": 0.3,
+                "value": 1,
+                "cap": [0,1],
+                "safe": [-Infinity,Infinity],
+                "tooMuch": "",
+                "tooLittle": "",
+                "icon": "o2",
+                "colors": {
+                    0: "yellow",
+                    1: "green"
+                }
+            },
+            "waste": {
+                "name": "Waste",
+                "delta": 0.018,
+                "value": 0,
+                "cap": [0,1],
+                "safe": [0,0.95],
+                "tooMuch": "You filled with waste products",
+                "tooLittle": "",
+                "icon": "waste",
+                "colors": {
+                    0: "green",
+                    1: "brown"
+                }
+            },
+            "disease": {
+                "name": "disease",
+                "delta": [{type:AttributeChangeTypes.GROWTH, rate: 0.11},
+                    {type:AttributeChangeTypes.CHANGE_AT_TIME, time: 60, delta: 0.1},
+                    {type:AttributeChangeTypes.CHANGE_AT_TIME, time: 28, delta: 0.1}],
+                "value": 0,
+                "cap": [0,1],
+                "safe": [0,0.95],
+                "tooMuch": "You were overwhelmed with disease",
+                "tooLittle": "",
+                "icon": "disease",
+                "colors": {
+                    0: "green",
+                    0.1: "yellow",
+                    0.4: "red",
+                    1: "rgb(98,2,2)"
+                },
+            },
+        },
+        actions: {
+            "hunger": {
+                "name": "Hunger",
+                "ligand": 2,
+                "target": TargetLocation.ENDOCRINE,
+                "color": 200,
+                "rate": 5,
+            },
+            "generic": {
+                "name": "Stress",
+                "ligand": 5,
+                "target": TargetLocation.AUTOCRINE,
+                "color": 60,
+                "rate": 20,
+                "cost": {
+                    "energy": -0.02
+                }
+            },
+            "antibodies": {
+                "name": "Antibodies",
+                "ligand": 4,
+                "target": TargetLocation.AUTOCRINE,
+                "color": 300,
+                "rate": 20,
+                "cost": {
+                    "energy": -0.01
+                }
+            },
+            "exocytosis": {
+                "name": "Exocytosis",
+                "ligand": 3,
+                "target": TargetLocation.AUTOCRINE,
+                "color": 100,
+                "rate": 3,
+            },
+            "cr": {
+                "name": "Cellular Respiration",
+                "ligand": 1,
+                "target": TargetLocation.AUTOCRINE,
+                "color": "",
+                "rate": 30,
+            },
+        },
+        receptors: {
+            "respiration": {
+                "ligand": [1],
+                "location": TargetLocation.AUTOCRINE,
+                "color": 20,
+                "receptorStrength": 1,
+                "response": new CellularResponse().once().apply("glucose", -0.02).endBlock()
+                    .persistently(0.55).checkIf("glucose", CellularResponse.Comparison.GREATER_THAN, 0).checkIf("oxygen", CellularResponse.Comparison.GREATER_THAN, 0).apply("oxygen", -0.09, true).apply("energy", 0.085, true)
+                    .build()
+            },
+            "exocytosis": {
+                "ligand": [3],
+                "location": TargetLocation.AUTOCRINE,
+                "color": 100,
+                "receptorStrength": 1,
+                "response": new CellularResponse().withDelay(1).once()
+                    .checkIf("energy", CellularResponse.Comparison.GREATER_THAN, 0.1)
+                    .apply("energy", -0.05).apply("waste", -0.1)
+                    .build()
+            },
+            "hunger": {
+                "ligand": [2],
+                "location": TargetLocation.ENDOCRINE,
+                "color": 200,
+                "receptorStrength": 1,
+                "response": new CellularResponse().withDelay(1).persistently(0.7).apply("glucose", 0.12, true).build()
+            },
+            "antibodies": {
+                "ligand": [5],
+                "location": TargetLocation.ENDOCRINE,
+                "color": 320,
+                "receptorStrength": 1,
+                "response": new CellularResponse().once().callLevelFunction("endocrineDiseaseHelp").build()
+            },
+            "antibodies2": {
+                "ligand": [5],
+                "location": TargetLocation.PARACRINE,
+                "color": 320,
+                "receptorStrength": 2,
+                "response": new CellularResponse().once().callLevelFunction("paracrineDiseaseHelp").build()
+            },
+            "support": {
+                "ligand": [6],
+                "location": TargetLocation.AUTOCRINE,
+                "color": 250,
+                "receptorStrength": 20,
+                "response": new CellularResponse().persistently(0.6).apply("energy", 0.13, true).apply("glucose", 0.13, true).apply("oxygen", 0.13, true).endBlock()
+                    .once().chance(0.1).apply("disease", 0.05).build()
+            },
+            "antibodies3": {
+                "ligand": [4],
+                "location": TargetLocation.AUTOCRINE,
+                "color": 300,
+                "receptorStrength": 3,
+                "response": new CellularResponse().persistently(0.4).apply("energy", -0.04, true).apply("waste", 0.04, true).endBlock()
+                    .withDelay(0.4).once().apply("disease", -0.05).build()
+            }
+        }
+    },
+    5: {
+        playtime: 120,
+        ligands: 1000,
+        attributes: {
+            "energy": {
+                "name": "ATP",
+                "delta": -0.035,
+                "value": 1,
+                "cap": [0,1],
+                "safe": [0.1,Infinity],
+                "tooMuch": "",
+                "tooLittle": "You ran out of energy!",
+                "icon": "atp",
+                "colors": {
+                    0: "red",
+                    0.1: "red",
+                    0.3: "yellow",
+                    1: "green"
+                }
+            },
+            "glucose": {
+                "name": "Glucose",
+                "delta": 0,
+                "value": 1,
+                "cap": [0,1],
+                "safe": [-Infinity,Infinity],
+                "tooMuch": "",
+                "tooLittle": "",
+                "icon": "glucose",
+                "colors": {
+                    0: "yellow",
+                    1: "green"
+                }
+            },
+            "oxygen": {
+                "name": "O₂",
+                "delta": 0.3,
+                "value": 1,
+                "cap": [0,1],
+                "safe": [-Infinity,Infinity],
+                "tooMuch": "",
+                "tooLittle": "",
+                "icon": "o2",
+                "colors": {
+                    0: "yellow",
+                    1: "green"
+                }
+            },
+            "waste": {
+                "name": "Waste",
+                "delta": 0.018,
+                "value": 0,
+                "cap": [0,1],
+                "safe": [0,0.95],
+                "tooMuch": "You filled with waste products",
+                "tooLittle": "",
+                "icon": "waste",
+                "colors": {
+                    0: "green",
+                    1: "brown"
+                }
+            },
+            "disease": {
+                "name": "disease",
+                "delta": [{type:AttributeChangeTypes.GROWTH, rate: 0.11},
+                    {type:AttributeChangeTypes.CHANGE_AT_TIME, time: 98, delta: 0.1},
+                    {type:AttributeChangeTypes.CHANGE_AT_TIME, time: 61, delta: 0.1},
+                    {type:AttributeChangeTypes.CHANGE_AT_TIME, time: 23, delta: 0.19}],
+                "value": 0,
+                "cap": [0,1],
+                "safe": [0,0.95],
+                "tooMuch": "You were overwhelmed with disease",
+                "tooLittle": "",
+                "icon": "disease",
+                "colors": {
+                    0: "green",
+                    0.1: "yellow",
+                    0.4: "red",
+                    1: "rgb(98,2,2)"
+                },
+            },
+            "temp": {
+                "name": "temperature",
+                "delta": [{type:AttributeChangeTypes.GROWTH, rate: -0.01}],
+                "value": 0.5,
+                "cap": [0,1],
+                "safe": [0.1,0.8],
+                "tooMuch": "You got too hot",
+                "tooLittle": "You froze",
+                "icon": "temperature",
+                "colors": {
+                    0: "rgb(144,159,245)",
+                    .7: "pink"
+                },
+            },
+        },
+        actions: {
+            "hunger": {
+                "name": "Hunger",
+                "ligand": 2,
+                "target": TargetLocation.ENDOCRINE,
+                "color": 200,
+                "rate": 5,
+            },
+            "stress": {
+                "name": "Stress",
+                "ligand": 5,
+                "target": TargetLocation.AUTOCRINE,
+                "color": 60,
+                "rate": 20,
+                "cost": {
+                    "energy": -0.02,
+                    "temp": 0.007
+                }
+            },
+            "antibodies": {
+                "name": "Antibodies",
+                "ligand": 4,
+                "target": TargetLocation.AUTOCRINE,
+                "color": 300,
+                "rate": 20,
+                "cost": {
+                    "energy": -0.01
+                }
+            },
+            "exocytosis": {
+                "name": "Exocytosis",
+                "ligand": 3,
+                "target": TargetLocation.AUTOCRINE,
+                "color": 100,
+                "rate": 3,
+            },
+            "cr": {
+                "name": "Cellular Respiration",
+                "ligand": 1,
+                "target": TargetLocation.AUTOCRINE,
+                "color": "",
+                "rate": 30,
+            },
+        },
+        receptors: {
+            "respiration": {
+                "ligand": [1, 5],
+                "location": TargetLocation.AUTOCRINE,
+                "color": 20,
+                "receptorStrength": 1,
+                "response": new CellularResponse().once().apply("glucose", -0.02).endBlock()
+                    .persistently(0.55).checkIf("glucose", CellularResponse.Comparison.GREATER_THAN, 0).checkIf("oxygen", CellularResponse.Comparison.GREATER_THAN, 0)
+                    .apply("oxygen", -0.09, true).apply("energy", 0.085, true).apply("temp", 0.007, true)
+                    .build()
+            },
+            "exocytosis": {
+                "ligand": [3],
+                "location": TargetLocation.AUTOCRINE,
+                "color": 100,
+                "receptorStrength": 1,
+                "response": new CellularResponse().withDelay(1).once()
+                    .checkIf("energy", CellularResponse.Comparison.GREATER_THAN, 0.1)
+                    .apply("energy", -0.05).apply("waste", -0.1)
+                    .endBlock().endBlock().withDelay(1).persistently(3).apply("temp", -0.008, true)
+                    .build()
+            },
+            "hunger": {
+                "ligand": [2],
+                "location": TargetLocation.ENDOCRINE,
+                "color": 200,
+                "receptorStrength": 1,
+                "response": new CellularResponse().withDelay(1).persistently(0.7).apply("glucose", 0.12, true).apply("temp", -0.002, true).build()
+            },
+            "stress2": {
+                "ligand": [5],
+                "location": TargetLocation.ENDOCRINE,
+                "color": 320,
+                "receptorStrength": 4,
+                "response": new CellularResponse().once().callLevelFunction("endocrineDiseaseHelp").build()
+            },
+            "stress1": {
+                "ligand": [5],
+                "location": TargetLocation.PARACRINE,
+                "color": 320,
+                "receptorStrength": 6,
+                "response": new CellularResponse().once().callLevelFunction("paracrineDiseaseHelp").build()
+            },
+            "support": {
+                "ligand": [6],
+                "location": TargetLocation.AUTOCRINE,
+                "color": 250,
+                "receptorStrength": 20,
+                "response": new CellularResponse().persistently(0.6).apply("energy", 0.13, true).apply("glucose", 0.13, true).apply("oxygen", 0.13, true).endBlock()
+                    .once().chance(0.1).apply("disease", 0.05).build()
+            },
+            "antibodies": {
+                "ligand": [4],
+                "location": TargetLocation.AUTOCRINE,
+                "color": 300,
+                "receptorStrength": 3,
+                "response": new CellularResponse().persistently(0.4).apply("temp", -0.01, true).apply("energy", -0.04, true).apply("waste", 0.04, true).endBlock()
+                    .withDelay(0.4).once().apply("disease", -0.05).build()
+            }
+        }
+    },
 }
 
 /*
@@ -351,71 +952,6 @@ Hunger - Makes organism hungry and will cause delayed increase in glucose.
 
 Juxtacrine Actions: n/a
  */
-let cell = {
-    "energy": {
-        "name": "ATP",
-        "delta": -0.04,
-        "value": 1,
-        "cap": [0,1],
-        "safe": [0.1,Infinity],
-        "tooMuch": "",
-        "tooLittle": "You ran out of energy!"
-    },
-    "glucose": {
-        "name": "Glucose",
-        "delta": 0,
-        "value": 1,
-        "cap": [0,1],
-        "safe": [-Infinity,Infinity],
-        "tooMuch": "",
-        "tooLittle": ""
-    },
-    "oxygen": {
-        "name": "O₂",
-        "delta": 0.3,
-        "value": 1,
-        "cap": [0,1],
-        "safe": [-Infinity,Infinity],
-        "tooMuch": "",
-        "tooLittle": ""
-    },
-    "waste": {
-        "name": "Waste",
-        "delta": 0.1,
-        "value": 0,
-        "cap": [0,1],
-        "safe": [-Infinity,0.9],
-        "tooMuch": "There was too many waste products in the cell", // todo: should this be was or were?
-        "tooLittle": ""
-    },
-    "ph": {
-        "name": "pH",
-        "delta": 0,
-        "value": 7.2,
-        "cap": [0,14],
-        "safe": [6.6,7.8], // 7.0 to 7.4 is normal for mammalian cytoplasm
-        "tooMuch": "Your pH got too high and your proteins denatured",
-        "tooLittle": "Your pH got too low and your proteins denatured"
-    },
-    "disease": {
-        "name": "Disease",
-        "delta": 0,
-        "value": 0,
-        "cap": [0,1],
-        "safe": [0,1],
-        "tooMuch": "You were killed by disease",
-        "tooLittle": ""
-    },
-    "temperature": {
-        "name": "Temperature",
-        "delta": -0.25,
-        "value": 37,
-        "cap": [30,50],
-        "safe": [34,40], // 34-40c is normal for mammals.
-        "tooMuch": "You got too hot and your proteins denatured",
-        "tooLittle": "You got too cold and died"
-    }
-}
 
 let mainMenu = World.addChild(new Group())
 {
@@ -448,8 +984,8 @@ Remember that all models are wrong, but some are useful. This model of cells and
 }
 let gameplay = World.addChild(new Group())
 {
-    let dialHeight = 190
-    let dialWidth = 60
+    let dialHeight = 140
+    let dialWidth = 40
     let dialGap = 10
     let receptorSize = 50
     let receptorPadding = 20
@@ -459,7 +995,10 @@ let gameplay = World.addChild(new Group())
 
     let currentResponses = []
 
+    let receptorLocations = {}
+
     var loadLevel = function(num) {
+        receptorLocations = {}
         level = num
         World.removeChild(gameplay)
         gameplay = World.addChild(new Group())
@@ -482,7 +1021,6 @@ let gameplay = World.addChild(new Group())
         phaseDetails["actions"] = levelDetails["actions"]
 
         let takenLocationsForReceptors = []
-        let receptorLocations = {}
         for (let receptorName of Object.keys(levelDetails["receptors"])) {
             let receptor = levelDetails["receptors"][receptorName]
             let entity = new Sprite(Sprite.DrawType.IMAGE, `receptor/${receptor.ligand[0]}`, receptor.color, receptorSize, receptorSize)
@@ -542,38 +1080,15 @@ let gameplay = World.addChild(new Group())
 
         let actions = phaseDetails["actions"]
         let i = 0
-        for (let id of Object.keys(actions)) {
+        for (let id of shuffle(Object.keys(actions))) {
             let action = actions[id]
             let button = new UIElement(UIElement.Type.HOLD_BUTTON, action.name, 300, 75, () => {
                 if (phaseDetails.ligands > 0) {
-                    let particle = gameplay.addChild(new Sprite(Sprite.DrawType.IMAGE, `ligand/${action.ligand}`, action.color, ligandSize, ligandSize))
-                    particle.r = Math.random() * Math.PI * 2
-                    particle.vr = Math.random()
-                    particle.collisions = true
-                    particle.personalLayers = [action.ligand]
-
-                    let target = receptorLocations[action.ligand][Math.floor(Math.random() * receptorLocations[action.ligand].length)]
-
-                    let points = [[210, 720]]
-
-                    if (target[2] === TargetLocation.AUTOCRINE || target[2] === TargetLocation.PARACRINE) {
-                        points.push([Math.random() * 600, Math.random() * 440 + 400])
-                        points.push([Math.random() * 600, Math.random() * 440 + 400])
+                    for (let cost of Object.keys(action.cost ?? {})) {
+                        cell[cost].value += action.cost[cost]
                     }
-                    else if (target[2] === TargetLocation.ENDOCRINE) {
-                        points.push([Math.random() * 400,Math.random() * 300])
-                    }
-                    points.push(target)
 
-                    let curve = new Bezier2d(points)
-
-                    let t = 0
-                    let speed = ligandMinSpeedMultiplier + (Math.random() * (ligandMaxSpeedMultiplier - ligandMinSpeedMultiplier))
-                    particle.addCallback(Entity.Callbacks.TICK, () => {
-                        t = Math.min(t + dt * speed, 1)
-                        curve.draw()
-                        particle.setPos(curve.x(t) - ligandSize / 2, curve.y(t) - ligandSize / 2)
-                    })
+                    spawnLigand(action)
 
                     phaseDetails.ligands -= 1
                 }
@@ -617,13 +1132,43 @@ let gameplay = World.addChild(new Group())
         phaseDetails["timeLeftText"] = new Sprite()
         gameplay.addChild(phaseDetails["timeLeftText"]).setBounds(i * (dialWidth + dialGap) + 254, height - 75, i * (dialWidth + dialGap) + 334, height)
 
-
         gamePhase = Phases.GAMEPLAY
     }
 
     function calculateIndicatorY(attr) {
         let y = Math.min(height - dialHeight * (attr.value - attr.cap[0]) / (attr.cap[1] - attr.cap[0]), height - 10)
         return y
+    }
+
+    var spawnLigand = function(action, startPt = [210,720]) {
+        let particle = gameplay.addChild(new Sprite(Sprite.DrawType.IMAGE, `ligand/${action.ligand}`, action.color, ligandSize, ligandSize))
+        particle.r = Math.random() * Math.PI * 2
+        particle.vr = Math.random()
+        particle.collisions = true
+        particle.personalLayers = [action.ligand]
+
+        let target = receptorLocations[action.ligand][Math.floor(Math.random() * receptorLocations[action.ligand].length)]
+
+        let points = [startPt]
+
+        if (target[2] === TargetLocation.AUTOCRINE || target[2] === TargetLocation.PARACRINE) {
+            points.push([Math.random() * 600, Math.random() * 440 + 400])
+            points.push([Math.random() * 600, Math.random() * 440 + 400])
+        }
+        else if (target[2] === TargetLocation.ENDOCRINE) {
+            points.push([Math.random() * 400,Math.random() * 300])
+        }
+        points.push(target)
+
+        let curve = new Bezier2d(points)
+
+        let t = 0
+        let speed = ligandMinSpeedMultiplier + (Math.random() * (ligandMaxSpeedMultiplier - ligandMinSpeedMultiplier))
+        particle.addCallback(Entity.Callbacks.TICK, () => {
+            t = Math.min(t + dt * speed, 1)
+            curve.draw()
+            particle.setPos(curve.x(t) - ligandSize / 2, curve.y(t) - ligandSize / 2)
+        })
     }
 
     var gameplayTick = function() {
@@ -644,7 +1189,27 @@ let gameplay = World.addChild(new Group())
         }
 
         for (let attr of Object.keys(cell)) {
-            cell[attr]["value"] = Math.max(cell[attr]["cap"][0], Math.min(cell[attr]["cap"][1], cell[attr]["value"] + cell[attr]["delta"] * dt))
+            let change = cell[attr]["delta"]
+            if (typeof change === "number") {
+                change = [change]
+            }
+            for (let effect of change) {
+                if (typeof effect === "number") {
+                    cell[attr]["value"] = Math.max(cell[attr]["cap"][0], Math.min(cell[attr]["cap"][1], cell[attr]["value"] + cell[attr]["delta"] * dt))
+                } else {
+                    if (effect["type"] === AttributeChangeTypes.CHANGE_AT_TIME) {
+                        if (!effect["occurred"] && phaseDetails["playtime"] < effect["time"]) {
+                            effect["occurred"] = true
+                            cell[attr]["value"] += effect["delta"]
+                        }
+                    }
+                    if (effect["type"] === AttributeChangeTypes.GROWTH) {
+                        if (cell[attr]["value"] > 0.05) {
+                            cell[attr]["value"] *= 1 + (effect["rate"] * dt)
+                        }
+                    }
+                }
+            }
             if (cell[attr]["safe"][1] < cell[attr]["value"]) {
                 cellDeath(cell[attr]["tooMuch"], attr)
                 return
@@ -716,3 +1281,5 @@ World.addCallback(Entity.Callbacks.TICK, () => {
         gameplayTick()
     }
 })
+
+loadLevel(5)
