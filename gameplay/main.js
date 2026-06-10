@@ -544,7 +544,7 @@ let levels = {
     },
     4: {
         playtime: 75,
-        ligands: 500,
+        ligands: 400,
         attributes: {
             "energy": {
                 "name": "ATP",
