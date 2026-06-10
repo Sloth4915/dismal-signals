@@ -54,6 +54,11 @@ playButton.style.left = "50%"
 playButton.style.top = "50%"
 playButton.style.transform = "translate(-50%, -50%)"
 playButton.addEventListener("click", () => {
+    document.body.requestFullscreen()
+    begin()
+    playButton.remove()
+})
+playButton.addEventListener("touchstart", () => {
     canvas.requestFullscreen()
     begin()
     playButton.remove()
@@ -85,42 +90,6 @@ for (let src of ["disabled","selected","standard"]) {
 //#endregion Initial Setup
 
 //#region Engine
-
-/* Removed because the children remain in world, invalidating this. Good idea and might have potential later.
-class Scene {
-    constructor(name) {
-        this.name = name
-        this.script = document.createElement("script")
-        this.script.src = `gameplay/${name}.js`
-    }
-}
-
-const SceneHandler = Object.freeze({
-    scenes: [],
-    addScene(scene) {
-        if (typeof scene === "string") scene = new Scene(scene)
-        this.scenes.push(scene)
-        document.body.appendChild(scene.script)
-    },
-    removeScene(scene) {
-        scene = this.scenes.splice(this.indexOf(scene),1)[0]
-        console.log(scene)
-        scene.script.remove()
-    },
-    includes(scene) {
-        for (let currentScene of this.scenes) {
-            if (currentScene.name === scene.name) return true
-        }
-        return false
-    },
-    indexOf(scene) {
-        console.log(this.scenes, scene)
-        for (let i in this.scenes) {
-            if (this.scenes[i].name === scene.name ?? scene) return i
-        }
-        return -1
-    }
-})*/
 
 let dt = 0
 let totalEntities = 0
@@ -270,7 +239,13 @@ class Entity {
         }
 
         for (let callback of this.callbacks) {
-            if (callback.type === Entity.Callbacks.TICK) callback.fn(this)
+            try {
+                if (callback.type === Entity.Callbacks.TICK) {
+                        callback.fn(this)
+                }
+            } catch (e) {
+                console.error(e.stack())
+            }
         }
     }
     draw() {
@@ -397,11 +372,15 @@ class Group extends Entity {
     tick() {
         super.tick()
         for (let e of this.entities) {
-            if (this.vx < 0.5) this.vx = 0
-            else e.x += this.vx * dt
-            if (this.vy < 0.5) this.vy = 0
-            else e.y += this.vy * dt
-            if (!e.disabled) e.tick()
+            try {
+                if (this.vx < 0.5) this.vx = 0
+                else e.x += this.vx * dt
+                if (this.vy < 0.5) this.vy = 0
+                else e.y += this.vy * dt
+                if (!e.disabled) e.tick()
+            } catch (e) {
+                console.error(e.stack())
+            }
         }
     }
     addChild(e, xOrChangePosition = false, y=0) {
@@ -926,29 +905,33 @@ function _tick(a) {
     draw.fillRect(mx,my,4,4)
 
     for (let entity of _entities) {
-        if (!entity.collisions) continue
-        let layers = []
-        let collidingWith = []
-        for (let check of _entities) {
-            if (check === entity || !check.collisions) continue
-            for (let layer of entity.collisionLayers) {
-                if (check.personalLayers.includes(layer)) {
-                    let points = [
-                        {x: check.left, y: check.top},
-                        {x: check.right, y: check.top},
-                        {x: check.left, y: check.bottom},
-                        {x: check.right, y: check.bottom}
-                    ]
-                    for (let p of points) {
-                        if (entity.left < p.x && p.x < entity.right && entity.top < p.y && p.y < entity.bottom) {
-                            layers.push(layer)
-                            collidingWith.push(check)
+        try {
+            if (!entity.collisions) continue
+            let layers = []
+            let collidingWith = []
+            for (let check of _entities) {
+                if (check === entity || !check.collisions) continue
+                for (let layer of entity.collisionLayers) {
+                    if (check.personalLayers.includes(layer)) {
+                        let points = [
+                            {x: check.left, y: check.top},
+                            {x: check.right, y: check.top},
+                            {x: check.left, y: check.bottom},
+                            {x: check.right, y: check.bottom}
+                        ]
+                        for (let p of points) {
+                            if (entity.left < p.x && p.x < entity.right && entity.top < p.y && p.y < entity.bottom) {
+                                layers.push(layer)
+                                collidingWith.push(check)
+                            }
                         }
                     }
                 }
+                entity.activeCollisions = layers
+                entity.collidingWith = collidingWith
             }
-            entity.activeCollisions = layers
-            entity.collidingWith = collidingWith
+        } catch (e) {
+            console.error(e.stack())
         }
     }
 

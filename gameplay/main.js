@@ -928,31 +928,6 @@ let levels = {
     },
 }
 
-/*
-Energy: constantly goes down at a slow pace
-Glucose: Stays constant, modified by other actions.
-Oxygen: constantly goes up.
-Waste: constantly goes up.
-pH: Stays constant and is modified by other actions
-Disease: Occasionally pops up and then increases exponentially. Increases rate of energy consumption.
-Temperature: Swings either down or up randomly
-
-Autocrine Actions:
-Cellular Respiration - Creates energy, consumes oxygen, decreases pH
-Exocytosis - Uses energy, reduces waste, decrease pH
-Release antibodies - uses energy, increases waste
-Active Ion Transport - uses energy, increases pH
-Burn energy - uses energy, increases temperature
-
-Paracrine Actions:
-Warn of disease - Warns other cells of disease but uses a lot of energy.
-
-Endocrine Actions:
-Hunger - Makes organism hungry and will cause delayed increase in glucose.
-
-Juxtacrine Actions: n/a
- */
-
 let mainMenu = World.addChild(new Group())
 {
     mainMenu.addChild(new Sprite(Sprite.DrawType.TEXT_LARGE, GAME_NAME, undefined, 400, 50)).setPosition((width)/2, 170)
