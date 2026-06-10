@@ -329,7 +329,7 @@ let levels = {
                 "delta": 0.032,
                 "value": 0,
                 "cap": [0,1],
-                "safe": [0,0.95],
+                "safe": [-Infinity,0.95],
                 "tooMuch": "You filled with waste products",
                 "tooLittle": "",
                 "icon": "waste",
@@ -444,7 +444,7 @@ let levels = {
                 "delta": 0.018,
                 "value": 0,
                 "cap": [0,1],
-                "safe": [0,0.95],
+                "safe": [-Infinity,0.95],
                 "tooMuch": "You filled with waste products",
                 "tooLittle": "",
                 "icon": "waste",
@@ -460,7 +460,7 @@ let levels = {
                     {type:AttributeChangeTypes.CHANGE_AT_TIME, time: 30, delta: 0.1}],
                 "value": 0,
                 "cap": [0,1],
-                "safe": [0,0.95],
+                "safe": [-Infinity,0.95],
                 "tooMuch": "You were overwhelmed with disease",
                 "tooLittle": "",
                 "icon": "disease",
@@ -595,7 +595,7 @@ let levels = {
                 "delta": 0.018,
                 "value": 0,
                 "cap": [0,1],
-                "safe": [0,0.95],
+                "safe": [-Infinity,0.95],
                 "tooMuch": "You filled with waste products",
                 "tooLittle": "",
                 "icon": "waste",
@@ -611,7 +611,7 @@ let levels = {
                     {type:AttributeChangeTypes.CHANGE_AT_TIME, time: 28, delta: 0.1}],
                 "value": 0,
                 "cap": [0,1],
-                "safe": [0,0.95],
+                "safe": [-Infinity,0.95],
                 "tooMuch": "You were overwhelmed with disease",
                 "tooLittle": "",
                 "icon": "disease",
@@ -778,7 +778,7 @@ let levels = {
                 "delta": 0.018,
                 "value": 0,
                 "cap": [0,1],
-                "safe": [0,0.95],
+                "safe": [-Infinity,0.95],
                 "tooMuch": "You filled with waste products",
                 "tooLittle": "",
                 "icon": "waste",
@@ -795,7 +795,7 @@ let levels = {
                     {type:AttributeChangeTypes.CHANGE_AT_TIME, time: 23, delta: 0.19}],
                 "value": 0,
                 "cap": [0,1],
-                "safe": [0,0.95],
+                "safe": [-Infinity,0.95],
                 "tooMuch": "You were overwhelmed with disease",
                 "tooLittle": "",
                 "icon": "disease",
@@ -811,7 +811,7 @@ let levels = {
                 "delta": [{type:AttributeChangeTypes.GROWTH, rate: -0.01}],
                 "value": 0.5,
                 "cap": [0,1],
-                "safe": [0.1,0.8],
+                "safe": [0.1,0.9],
                 "tooMuch": "You got too hot",
                 "tooLittle": "You froze",
                 "icon": "temperature",
@@ -971,6 +971,8 @@ let gameplay = World.addChild(new Group())
 
     let receptorLocations = {}
 
+    let warning
+
     var loadLevel = function(num) {
         receptorLocations = {}
         level = num
@@ -1106,6 +1108,10 @@ let gameplay = World.addChild(new Group())
         phaseDetails["timeLeftText"] = new Sprite()
         gameplay.addChild(phaseDetails["timeLeftText"]).setBounds(i * (dialWidth + dialGap) + 254, height - 75, i * (dialWidth + dialGap) + 334, height)
 
+        warning = gameplay.addChild(new Sprite(Sprite.DrawType.RECT, "red", null, width,height))
+        warning.opacity = 0
+        warning.setPos(0,0)
+
         gamePhase = Phases.GAMEPLAY
     }
 
@@ -1162,6 +1168,7 @@ let gameplay = World.addChild(new Group())
             currentResponses.splice(currentResponses.indexOf(response), 1)
         }
 
+        let alert = false
         for (let attr of Object.keys(cell)) {
             let change = cell[attr]["delta"]
             if (typeof change === "number") {
@@ -1192,9 +1199,18 @@ let gameplay = World.addChild(new Group())
                 cellDeath(cell[attr]["tooLittle"], attr)
                 return
             }
+
+            if (cell[attr]["safe"][1] < cell[attr]["value"] + 0.1) {
+                alert = true
+            }
+            if (cell[attr]["safe"][0] > cell[attr]["value"] - 0.1) {
+                alert = true
+            }
+
             cell[attr]["indicator"].y = calculateIndicatorY(cell[attr])
             cell[attr]["indicator2"].y = calculateIndicatorY(cell[attr]) + 2
         }
+        warning.opacity = alert ? 0.4*((Math.sin(timeElapsed * 10) + 1)/2) : 0
 
         phaseDetails["ligandsText"].setTextMedium(`${phaseDetails.ligands} ligands left`)
         phaseDetails["timeLeftText"].setTextMedium(`${Math.floor(phaseDetails.playtime/60)}:${(Math.floor(phaseDetails.playtime % 60) + "").padStart(2, "0")}`)
