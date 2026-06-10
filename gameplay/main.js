@@ -975,6 +975,7 @@ let gameplay = World.addChild(new Group())
 
     var loadLevel = function(num) {
         receptorLocations = {}
+        currentResponses = []
         level = num
         World.removeChild(gameplay)
         gameplay = World.addChild(new Group())
