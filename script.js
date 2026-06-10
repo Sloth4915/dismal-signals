@@ -31,6 +31,8 @@ document.body.style["align-items"] = "center"
 document.body.style["width"] = "100vw"
 document.body.style["height"] = "100vh"
 document.body.style["background-color"] = "black"
+document.body.style["touch-action"] = "none"
+document.body.style["user-select"] = "none"
 
 document.title = GAME_NAME
 
@@ -43,6 +45,7 @@ canvas.style.maxWidth = "100vw"
 canvas.style.maxHeight = "100vh"
 canvas.style["object-fit"] = "contain"
 canvas.style["image-rendering"] = "pixelated"
+canvas.style["user-select"] = "none"
 let draw = canvas.getContext("2d")
 draw.font = smallFont
 draw.imageSmoothingEnabled = draw.webkitImageSmoothingEnabled = draw.mozImageSmoothingEnabled = false
@@ -61,7 +64,6 @@ function _onCanvasResize() {
     canvas.style.height = h+"px"
 }
 window.addEventListener("resize", () => {
-    console.log('re')
     _onCanvasResize()
 })
 
@@ -74,12 +76,14 @@ playButton.style.position = "absolute"
 playButton.style.left = "50%"
 playButton.style.top = "50%"
 playButton.style.transform = "translate(-50%, -50%)"
-playButton.addEventListener("click", () => {
+playButton.addEventListener("click", (e) => {
+    e.preventDefault()
     if (fullScreen) document.body.requestFullscreen()
     begin()
     playButton.remove()
 })
-playButton.addEventListener("touchstart", () => {
+playButton.addEventListener("touchstart", (e) => {
+    e.preventDefault()
     canvas.requestFullscreen()
     begin()
     playButton.remove()
@@ -862,31 +866,43 @@ let mdown = false
 let _hoveredEntities = []
 
 canvas.addEventListener("mousemove", (e) => {
+    e.preventDefault()
     mx = ((e.clientX - canvas.offsetLeft) / canvas.offsetWidth) * canvas.width
     my = ((e.clientY - canvas.offsetTop) / canvas.offsetHeight) * canvas.height
 })
 document.addEventListener("mousedown", (e) => {
+    e.preventDefault()
     mdown = true
 })
 document.addEventListener("mouseup", (e) => {
+    e.preventDefault()
     mdown = false
 })
 document.addEventListener("mouseleave", (e) => {
+    e.preventDefault()
     mdown = false
 })
 
 canvas.addEventListener("touchmove", (e) => {
-    mx = ((e.clientX - canvas.offsetLeft) / canvas.offsetWidth) * canvas.width
-    my = ((e.clientY - canvas.offsetTop) / canvas.offsetHeight) * canvas.height
+    e.preventDefault()
+    mx = ((e.touches[0].clientX - canvas.offsetLeft) / canvas.offsetWidth) * canvas.width
+    my = ((e.touches[0].clientY - canvas.offsetTop) / canvas.offsetHeight) * canvas.height
 })
 document.addEventListener("touchstart", (e) => {
+    e.preventDefault()
     mdown = true
-})
+}, {passive:false})
 document.addEventListener("touchend", (e) => {
+    e.preventDefault()
     mdown = false
 })
 document.addEventListener("touchcancel", (e) => {
+    e.preventDefault()
     mdown = false
+})
+
+document.addEventListener("contextmenu", (e) => {
+    e.preventDefault()
 })
 
 function _tick(a) {
