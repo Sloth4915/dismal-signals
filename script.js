@@ -11,6 +11,7 @@ const debug = false
 const debugShowBezier = false
 const clearConsolePerTick = false
 const dtMultiplier = 1
+const fullScreen = true
 let width = 1200
 let height = 800
 let imagePreloads = {
@@ -37,12 +38,32 @@ let canvas = document.createElement("canvas")
 document.body.appendChild(canvas)
 canvas.width = width
 canvas.height = height
+canvas.style.aspectRatio = `${width} / ${height}`
 canvas.style.maxWidth = "100vw"
 canvas.style.maxHeight = "100vh"
 canvas.style["object-fit"] = "contain"
+canvas.style["image-rendering"] = "pixelated"
 let draw = canvas.getContext("2d")
 draw.font = smallFont
 draw.imageSmoothingEnabled = draw.webkitImageSmoothingEnabled = draw.mozImageSmoothingEnabled = false
+
+_onCanvasResize()
+function _onCanvasResize() {
+    let w = document.body.offsetWidth
+    let h = document.body.offsetHeight
+
+    if (w > h) {
+        w = width * (h/height)
+    } else {
+        h = height * (w/width)
+    }
+    canvas.style.width = w+"px"
+    canvas.style.height = h+"px"
+}
+window.addEventListener("resize", () => {
+    console.log('re')
+    _onCanvasResize()
+})
 
 let playButton = document.createElement("button")
 playButton.innerText = "Play"
@@ -54,7 +75,7 @@ playButton.style.left = "50%"
 playButton.style.top = "50%"
 playButton.style.transform = "translate(-50%, -50%)"
 playButton.addEventListener("click", () => {
-    document.body.requestFullscreen()
+    if (fullScreen) document.body.requestFullscreen()
     begin()
     playButton.remove()
 })
