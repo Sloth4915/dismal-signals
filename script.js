@@ -5,7 +5,7 @@ let fonts = ["Metamorphous"]
 const smallFont = "16px Metamorphous, Arial"
 const mediumFont = "24px Metamorphous, Arial"
 const largeFont = "32px Metamorphous, Arial"
-const GAME_NAME = "Cell Signal Game"
+const GAME_NAME = "Cell Signal aa"
 const bgColor = "rgb(26,4,49)"
 const debug = false
 const debugShowBezier = false
@@ -13,6 +13,13 @@ const clearConsolePerTick = false
 const dtMultiplier = 1
 let width = 1200
 let height = 800
+let imagePreloads = {
+    "bg": ["sprite_0","sprite_1","sprite_2","sprite_3"],
+    "bg_blood": ["00","01","02","03","04","05","06","07","08","09","10","11"],
+    "ligand": ["1","2","3","4","5","6"],
+    "receptor": ["1","2","3","4","5","6"],
+    "": ["atp","disease","glucose","o2","ph","temperature","waste"]
+}
 //#endregion
 
 //#region Initial Setup
@@ -37,18 +44,42 @@ let draw = canvas.getContext("2d")
 draw.font = smallFont
 draw.imageSmoothingEnabled = draw.webkitImageSmoothingEnabled = draw.mozImageSmoothingEnabled = false
 
+let playButton = document.createElement("button")
+playButton.innerText = "Play"
+playButton.style.fontSize = "3rem"
+playButton.style.width = "10rem"
+playButton.style.height = "6rem"
+playButton.style.position = "absolute"
+playButton.style.left = "50%"
+playButton.style.top = "50%"
+playButton.style.transform = "translate(-50%, -50%)"
+playButton.addEventListener("click", () => {
+    canvas.requestFullscreen()
+    begin()
+    playButton.remove()
+})
+document.body.appendChild(playButton)
+
 let _fontsLoading = fonts.length
 for (let font of fonts) {
     new FontFace(font, `url(assets/fonts/${font}.ttf)`).load().then((loaded) => {
         document.fonts.add(loaded)
-        _fontsLoading--
+        _fontsLoading--/*
         if (_fontsLoading === 0) {
-            requestAnimationFrame(_tick)
-            let gameplayScript = document.createElement("script")
-            gameplayScript.src = "gameplay/main.js"
-            document.body.appendChild(gameplayScript)
-        }
+            begin()
+        }*/
     })
+}
+
+for (let src of Object.keys(imagePreloads)) {
+    for (let img of imagePreloads[src]) {
+        new Image().src = "assets/sprite/"+src+"/"+img+".png"
+    }
+}
+for (let src of ["disabled","selected","standard"]) {
+    for (let img of ["b","bl","br","l","m","r","t","tl","tr"]) {
+        new Image().src = "assets/9slice/"+src+"/"+img+".png"
+    }
 }
 
 //#endregion Initial Setup
@@ -844,6 +875,20 @@ document.addEventListener("mouseleave", (e) => {
     mdown = false
 })
 
+canvas.addEventListener("touchmove", (e) => {
+    mx = ((e.clientX - canvas.offsetLeft) / canvas.offsetWidth) * canvas.width
+    my = ((e.clientY - canvas.offsetTop) / canvas.offsetHeight) * canvas.height
+})
+document.addEventListener("touchstart", (e) => {
+    mdown = true
+})
+document.addEventListener("touchend", (e) => {
+    mdown = false
+})
+document.addEventListener("touchcancel", (e) => {
+    mdown = false
+})
+
 function _tick(a) {
     if (_time === null) {
         _time = a
@@ -911,6 +956,13 @@ function _tick(a) {
     timeElapsed += dt
     _entities = []
     requestAnimationFrame(_tick)
+}
+
+function begin() {
+    requestAnimationFrame(_tick)
+    let gameplayScript = document.createElement("script")
+    gameplayScript.src = "gameplay/main.js"
+    document.body.appendChild(gameplayScript)
 }
 
 //#endregion Engine

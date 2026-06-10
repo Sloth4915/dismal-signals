@@ -194,7 +194,7 @@ const levelFunctions = {
 let levels = {
     1: {
         playtime: 45,
-        ligands: 200,
+        ligands: 150,
         attributes: {
             "energy": {
                 "name": "ATP",
@@ -278,7 +278,7 @@ let levels = {
     },
     2: {
         playtime: 60,
-        ligands: 250,
+        ligands: 200,
         attributes: {
             "energy": {
                 "name": "ATP",
@@ -393,7 +393,7 @@ let levels = {
     },
     3: {
         playtime: 75,
-        ligands: 400,
+        ligands: 300,
         attributes: {
             "energy": {
                 "name": "ATP",
@@ -544,7 +544,7 @@ let levels = {
     },
     4: {
         playtime: 75,
-        ligands: 600,
+        ligands: 500,
         attributes: {
             "energy": {
                 "name": "ATP",
@@ -727,7 +727,7 @@ let levels = {
     },
     5: {
         playtime: 120,
-        ligands: 1000,
+        ligands: 500,
         attributes: {
             "energy": {
                 "name": "ATP",
@@ -974,10 +974,9 @@ let mainMenu = World.addChild(new Group())
     instructions.setTextSmallWrap(`
 In this game, you are a cell trying to maintain homeostasis. You do this by sending out signals.
 As in real life, you have limited resources and must manage them carefully. 
-To represent limited resources here, you may only send out some amount of ligands (signals) per level. Play conservatively to balance it all.
+Experiment with each signal to see what it does. Press and hold the buttons to send the signal.
 Each level builds upon the previous ones by adding more for you to keep track of.
-Some receptors may respond to multiple ligands. Signals that help with one attribute may hurt another.
-Remember that all models are wrong, but some are useful. This model of cells and cell signaling is gamified, and as such loses some biological accuracy.
+All models are wrong, but some are useful. This model of cells and cell signaling is gamified, and as such loses some biological accuracy.
    `.trim())
     instructions.hasMouseCollision = true
     instructions.collisions = false
