@@ -78,16 +78,25 @@ playButton.style.top = "50%"
 playButton.style.transform = "translate(-50%, -50%)"
 playButton.addEventListener("click", (e) => {
     e.preventDefault()
-    if (fullScreen) document.body.requestFullscreen()
+    if (fullScreen) requestFullscreen()
     begin()
     playButton.remove()
 })
 playButton.addEventListener("touchstart", (e) => {
     e.preventDefault()
-    canvas.requestFullscreen()
+    if (fullScreen) requestFullscreen()
     begin()
     playButton.remove()
 })
+
+function requestFullscreen() {
+    setTimeout(() => {
+        if (document.body.requestFullscreen) document.body.requestFullscreen()
+        else if (document.body.webkitRequestFullscreen) document.body.webkitRequestFullscreen()
+        else if (document.body.webkitEnterFullscreen) document.body.webkitEnterFullscreen()
+    },0)
+}
+
 document.body.appendChild(playButton)
 
 let _fontsLoading = fonts.length
